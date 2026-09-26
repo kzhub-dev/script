@@ -1,0 +1,3696 @@
+-- ════════════════════════════════════════════════════════════════
+-- KZ HUB v9.5 — Config Save/Load + Toggle Status + Опущенные крылья
+-- ════════════════════════════════════════════════════════════════
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local StarterGui = game:GetService("StarterGui")
+local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+
+local player = Players.LocalPlayer
+if not player then repeat task.wait(0.1) until Players.LocalPlayer; player = Players.LocalPlayer end
+if not player.Character then player.CharacterAdded:Wait() end
+
+pcall(function()
+    for _, v in ipairs(CoreGui:GetChildren()) do
+        if v.Name == "KZHubNebula" or v.Name == "KZ_Downed" or v.Name == "KZ_ESP" then v:Destroy() end
+    end
+    local pg = player:FindFirstChildOfClass("PlayerGui")
+    if pg then
+        for _, v in ipairs(pg:GetChildren()) do
+            if v.Name == "KZHubNebula" or v.Name == "KZ_Downed" or v.Name == "KZ_ESP" then v:Destroy() end
+        end
+    end
+end)
+
+_G.KZ = {}
+_G.KZ.player = player
+_G.KZ.Players = Players
+_G.KZ.RunService = RunService
+_G.KZ.UserInputService = UserInputService
+_G.KZ.ReplicatedStorage = ReplicatedStorage
+_G.KZ.TweenService = TweenService
+_G.KZ.CoreGui = CoreGui
+_G.KZ.StarterGui = StarterGui
+_G.KZ.Lighting = Lighting
+_G.KZ.HttpService = HttpService
+
+_G.KZ.State = {
+    fastShotEnabled=false, noRecoilEnabled=false, infiniteAmmoEnabled=false,
+    hitboxEnabled=false, hitboxX=4.3, hitboxY=4.3, hitboxZ=1.0,
+    hitboxTargets={},
+    invisibleHitboxEnabled=false, invisibleHitboxX=4.3, invisibleHitboxY=4.3, invisibleHitboxZ=1.0,
+    invisibleHitboxTargets={},
+    espEnabled=false,
+    espHighlight=true, espBox=true, espName=true, espDistance=true, espHealth=true, espTracer=false,
+    espMaxDistance=500,
+    espColorMode="Team",
+    espStaticColor=Color3.fromRGB(0,255,180),
+    espBoxThickness=1,
+    espTextSize=13,
+    espWhitelist={},
+    triggerBotEnabled=false,
+    triggerBotRayRange=1000,
+    triggerBotDelay=0.05,
+    triggerBotKey="MouseButton2",
+    triggerBotHoldMode=true,
+    triggerBotCheckShield=true,
+    triggerBotTargets={},
+    FovEnabled=false, FovValue=100, LowGraphicsEnabled=false,
+    flyEnabled=true, flySpeed=400, flyKey="LeftControl",
+    SC_Weapon="None", SC_Camo1="None", SC_Camo2="None",
+    SC_Anim1=true, SC_Anim2=true,
+    SC_Color1R=255, SC_Color1G=255, SC_Color1B=255,
+    SC_Color2R=255, SC_Color2G=255, SC_Color2B=255,
+    SC_UseColor1=false, SC_UseColor2=false,
+    aimbotModuleActive=false,
+    aimbotWhitelist={},
+    TimeChangerEnabled=false, ClockHours=14, ClockMinutes=0,
+    CurrentTheme="Turquoise", AccessoryColorName="Pink",
+    AccessoryColor=Color3.fromRGB(255,105,180),
+    KillRewardsEnabled=false,
+    KillStreakEnabled=true,
+    KillStreakSounds={[2]="rbxassetid://116907610084760",[3]="rbxassetid://119830932835553",[4]="rbxassetid://125662494668382",[10]="rbxassetid://94052833273238"},
+    KillStreakVolume=3, CurrentKillStreak=0,
+    MenuToggleKey="Insert", HideGameUI=false, HideChat=false,
+    CustomUserName=player.Name, CustomDisplayName=player.DisplayName,
+    CustomNameEnabled=false, CustomNameColor=Color3.fromRGB(255,255,255),
+    AccByIdInput="", AccByIdList={},
+    BodyPartTarget="Head", BodyPartByIdInput="", BodyPartList={},
+    ClothingTarget="T-Shirt", ClothingIdInput="",
+    SkinPlayerAutoApply=false,
+    ConfigName="KZHub_Default",
+    AutoSaveConfig=true,
+}
+
+_G.KZ.AccessoryColors = {
+    Pink=Color3.fromRGB(255,105,180), Black=Color3.fromRGB(20,20,25), White=Color3.fromRGB(240,240,245),
+    Blue=Color3.fromRGB(50,110,220), Turquoise=Color3.fromRGB(45,200,205), Purple=Color3.fromRGB(160,70,230),
+}
+
+_G.KZ.Themes = {
+    Pink={bg=Color3.fromRGB(25,15,22),titlebar=Color3.fromRGB(35,18,28),contentBg=Color3.fromRGB(20,12,18),tabColor=Color3.fromRGB(42,22,32),tabColorHover=Color3.fromRGB(65,30,48),tabColorDark=Color3.fromRGB(18,10,15),accent=Color3.fromRGB(255,105,180),splash=Color3.fromRGB(35,18,28),text=Color3.fromRGB(255,240,245),subtext=Color3.fromRGB(180,140,160)},
+    Green={bg=Color3.fromRGB(12,22,16),titlebar=Color3.fromRGB(18,32,22),contentBg=Color3.fromRGB(10,18,13),tabColor=Color3.fromRGB(20,40,28),tabColorHover=Color3.fromRGB(30,60,40),tabColorDark=Color3.fromRGB(8,15,10),accent=Color3.fromRGB(80,220,120),splash=Color3.fromRGB(18,32,22),text=Color3.fromRGB(240,255,245),subtext=Color3.fromRGB(140,180,155)},
+    Cyan={bg=Color3.fromRGB(12,20,25),titlebar=Color3.fromRGB(16,28,36),contentBg=Color3.fromRGB(10,16,20),tabColor=Color3.fromRGB(20,38,48),tabColorHover=Color3.fromRGB(30,55,70),tabColorDark=Color3.fromRGB(8,14,18),accent=Color3.fromRGB(0,210,255),splash=Color3.fromRGB(16,28,36),text=Color3.fromRGB(240,250,255),subtext=Color3.fromRGB(135,170,190)},
+    Turquoise={bg=Color3.fromRGB(13,20,22),titlebar=Color3.fromRGB(18,28,30),contentBg=Color3.fromRGB(10,15,17),tabColor=Color3.fromRGB(20,36,40),tabColorHover=Color3.fromRGB(30,52,58),tabColorDark=Color3.fromRGB(8,14,16),accent=Color3.fromRGB(0,225,200),splash=Color3.fromRGB(18,28,30),text=Color3.fromRGB(240,255,255),subtext=Color3.fromRGB(135,180,185)},
+    Purple={bg=Color3.fromRGB(18,14,25),titlebar=Color3.fromRGB(26,18,36),contentBg=Color3.fromRGB(14,10,20),tabColor=Color3.fromRGB(32,22,48),tabColorHover=Color3.fromRGB(50,32,72),tabColorDark=Color3.fromRGB(10,8,16),accent=Color3.fromRGB(170,90,255),splash=Color3.fromRGB(26,18,36),text=Color3.fromRGB(250,240,255),subtext=Color3.fromRGB(165,140,190)},
+    White={bg=Color3.fromRGB(230,232,238),titlebar=Color3.fromRGB(215,218,225),contentBg=Color3.fromRGB(222,225,232),tabColor=Color3.fromRGB(200,205,215),tabColorHover=Color3.fromRGB(180,185,200),tabColorDark=Color3.fromRGB(160,165,180),accent=Color3.fromRGB(0,140,255),splash=Color3.fromRGB(215,218,225),text=Color3.fromRGB(20,25,35),subtext=Color3.fromRGB(90,95,110)},
+    Black={bg=Color3.fromRGB(14,14,16),titlebar=Color3.fromRGB(20,20,24),contentBg=Color3.fromRGB(10,10,12),tabColor=Color3.fromRGB(24,24,30),tabColorHover=Color3.fromRGB(38,38,48),tabColorDark=Color3.fromRGB(8,8,10),accent=Color3.fromRGB(255,255,255),splash=Color3.fromRGB(20,20,24),text=Color3.fromRGB(245,245,250),subtext=Color3.fromRGB(140,140,150)},
+}
+_G.KZ.C = {}
+for k,v in pairs(_G.KZ.Themes.Turquoise) do _G.KZ.C[k]=v end
+_G.KZ.C.toggleOff=Color3.fromRGB(32,35,42); _G.KZ.C.disabled=Color3.fromRGB(60,65,75)
+_G.KZ.C.section=Color3.fromRGB(180,185,195); _G.KZ.C.closeRed=Color3.fromRGB(255,75,75)
+_G.KZ.C.kzBlue=Color3.fromRGB(0,180,230); _G.KZ.C.kzGold=Color3.fromRGB(255,190,40)
+_G.KZ.C.pink=Color3.fromRGB(255,105,180); _G.KZ.C.scrollbar=Color3.fromRGB(0,225,200)
+_G.KZ.C.dropdown=Color3.fromRGB(16,22,26); _G.KZ.C.neon=Color3.fromRGB(0,225,200)
+_G.KZ.C.neonRow=Color3.fromRGB(255,105,180); _G.KZ.C.neonRowHover=Color3.fromRGB(255,105,180)
+_G.KZ.C.darkPink=Color3.fromRGB(120,20,60)
+
+function _G.KZ.new(class, props)
+    local o = Instance.new(class)
+    for k,v in pairs(props or {}) do o[k]=v end
+    return o
+end
+function _G.KZ.corner(parent, r) return _G.KZ.new("UICorner", {CornerRadius=UDim.new(0,r or 8), Parent=parent}) end
+function _G.KZ.findChildChain(root, ...)
+    local node = root
+    for _, name in ipairs({...}) do
+        if not node then return nil end
+        node = node:FindFirstChild(name)
+    end
+    return node
+end
+function _G.KZ.hasCustomFace(char)
+    if not char then return false end
+    local head = char:FindFirstChild("Head"); if not head then return false end
+    local face = head:FindFirstChild("Face") or head:FindFirstChild("face")
+    if not face or not face:IsA("Decal") then return false end
+    local tex = tostring(face.Texture)
+    return tex ~= "" and tex ~= "rbxasset://textures/face.png"
+end
+function _G.KZ.isInList(name, list)
+    if not name or not list then return false end
+    local l = name:lower()
+    for _, n in ipairs(list) do
+        if n:lower() == l then return true end
+    end
+    return false
+end
+
+-- TIME CHANGER
+do
+    local State = _G.KZ.State
+    local Lighting = _G.KZ.Lighting
+    local RunService = _G.KZ.RunService
+    local savedClockTime = Lighting.ClockTime
+    local function applyTime()
+        if State.TimeChangerEnabled then
+            Lighting.ClockTime = State.ClockHours + (State.ClockMinutes / 60)
+        end
+    end
+    RunService.RenderStepped:Connect(applyTime)
+    function _G.KZ.setTime(h, m)
+        if h ~= nil then State.ClockHours = math.clamp(h, 0, 23) end
+        if m ~= nil then State.ClockMinutes = math.clamp(m, 0, 59) end
+        if State.TimeChangerEnabled then applyTime() end
+    end
+    function _G.KZ.applyTimeNow() applyTime() end
+    function _G.KZ.disableTimeChanger()
+        State.TimeChangerEnabled = false
+        Lighting.ClockTime = savedClockTime
+    end
+end
+
+-- FLY
+do
+    local State = _G.KZ.State
+    local player = _G.KZ.player
+    local RunService = _G.KZ.RunService
+    local UserInputService = _G.KZ.UserInputService
+    local new = _G.KZ.new
+    local flyState = {active=false, bodyVelocity=nil, bodyGyro=nil, connection=nil, noclipConnection=nil, savedHeadSize=nil, savedHeadMesh=nil, savedAutoScaling=true, savedCollide=nil}
+    _G.KZ.flyState = flyState
+    local function enableFlyNoclip()
+        if flyState.noclipConnection then flyState.noclipConnection:Disconnect() end
+        flyState.savedCollide = {}
+        local char = player.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    flyState.savedCollide[part] = part.CanCollide
+                    part.CanCollide = false
+                end
+            end
+        end
+        flyState.noclipConnection = RunService.Stepped:Connect(function()
+            local char = player.Character
+            if char then
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        if flyState.savedCollide and flyState.savedCollide[part] == nil then
+                            flyState.savedCollide[part] = part.CanCollide
+                        end
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+    local function disableFlyNoclip()
+        if flyState.noclipConnection then flyState.noclipConnection:Disconnect(); flyState.noclipConnection = nil end
+        local char = player.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if flyState.savedCollide and flyState.savedCollide[part] ~= nil then
+                        part.CanCollide = flyState.savedCollide[part]
+                    end
+                end
+            end
+        end
+        flyState.savedCollide = nil
+    end
+    local function startFly()
+        local char = player.Character; if not char then return end
+        local root = char:FindFirstChild("HumanoidRootPart"); local hum = char:FindFirstChildOfClass("Humanoid")
+        if not root or not hum then return end
+        local head = char:FindFirstChild("Head")
+        flyState.savedHeadSize = head and head.Size or nil
+        flyState.savedHeadMesh = nil
+        if head then
+            local m = head:FindFirstChildOfClass("SpecialMesh")
+            if m then flyState.savedHeadMesh = m.Scale end
+        end
+        flyState.savedAutoScaling = hum.AutomaticScalingEnabled
+        hum.AutomaticScalingEnabled = false
+        if flyState.bodyVelocity then flyState.bodyVelocity:Destroy() end
+        if flyState.bodyGyro then flyState.bodyGyro:Destroy() end
+        flyState.bodyVelocity = new("BodyVelocity",{MaxForce=Vector3.new(1e9,1e9,1e9),Velocity=Vector3.new(0,0,0),Parent=root})
+        flyState.bodyGyro = new("BodyGyro",{MaxTorque=Vector3.new(1e9,1e9,1e9),P=10000,CFrame=root.CFrame,Parent=root})
+        hum.PlatformStand = true
+        flyState.active = true
+        enableFlyNoclip()
+        if flyState.connection then flyState.connection:Disconnect() end
+        flyState.connection = RunService.RenderStepped:Connect(function()
+            if not flyState.active then return end
+            local char = player.Character; if not char then return end
+            local root = char:FindFirstChild("HumanoidRootPart"); local hum = char:FindFirstChildOfClass("Humanoid")
+            if not root or not hum or not flyState.bodyVelocity then return end
+            local head = char:FindFirstChild("Head")
+            if head and flyState.savedHeadSize and head.Size ~= flyState.savedHeadSize then head.Size = flyState.savedHeadSize end
+            if head and flyState.savedHeadMesh then
+                local m = head:FindFirstChildOfClass("SpecialMesh")
+                if m and m.Scale ~= flyState.savedHeadMesh then m.Scale = flyState.savedHeadMesh end
+            end
+            local cam = workspace.CurrentCamera
+            if flyState.bodyGyro then flyState.bodyGyro.CFrame = CFrame.new(root.Position, root.Position + cam.CFrame.LookVector) end
+            local moveDir = Vector3.new(0,0,0)
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveDir = moveDir + Vector3.new(0,1,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveDir = moveDir - Vector3.new(0,1,0) end
+            if moveDir.Magnitude > 0 then flyState.bodyVelocity.Velocity = moveDir.Unit * State.flySpeed
+            else flyState.bodyVelocity.Velocity = Vector3.new(0,0,0) end
+        end)
+    end
+    function _G.KZ.stopFly()
+        if flyState.bodyVelocity then flyState.bodyVelocity:Destroy(); flyState.bodyVelocity = nil end
+        if flyState.bodyGyro then flyState.bodyGyro:Destroy(); flyState.bodyGyro = nil end
+        local char = player.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then
+                hum.PlatformStand = false
+                hum.AutomaticScalingEnabled = flyState.savedAutoScaling
+            end
+            local head = char:FindFirstChild("Head")
+            if head and flyState.savedHeadSize then
+                head.Size = flyState.savedHeadSize
+                if flyState.savedHeadMesh then
+                    local m = head:FindFirstChildOfClass("SpecialMesh")
+                    if m then m.Scale = flyState.savedHeadMesh end
+                end
+            end
+        end
+        if flyState.connection then flyState.connection:Disconnect(); flyState.connection = nil end
+        flyState.active = false
+        flyState.savedHeadSize = nil
+        flyState.savedHeadMesh = nil
+        disableFlyNoclip()
+    end
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if not State.flyEnabled then return end
+        if input.KeyCode.Name == State.flyKey then
+            if flyState.active then
+                _G.KZ.stopFly()
+                if _G.KZ.updateStatus then _G.KZ.updateStatus("fly", "OFF", _G.KZ.C.subtext) end
+            else
+                startFly()
+                if _G.KZ.updateStatus then _G.KZ.updateStatus("fly", "FLYING", Color3.fromRGB(0,255,200)) end
+            end
+        end
+    end)
+    RunService.Stepped:Connect(function() if not State.flyEnabled and flyState.active then _G.KZ.stopFly() end end)
+end
+
+-- FAST SHOT
+do
+    local ReplicatedStorage = _G.KZ.ReplicatedStorage
+    local TweenService = _G.KZ.TweenService
+    function _G.KZ.toggleFastShot(enabled)
+        if enabled then
+            pcall(function()
+                local guns = { "Remington MSR", "M1903 Springfield", "M40 Sniper", "AWP", "Kar98K" }
+                for _, gunName in pairs(guns) do
+                    local configPath = ReplicatedStorage.Configurations.ACS_Guns:FindFirstChild(gunName)
+                    if configPath then
+                        local anim = require(configPath.Animations); local set = require(configPath.Settings)
+                        anim.EquipAnim = function(_, _, p4)
+                            TweenService:Create(p4[2], TweenInfo.new(0), { C1 = CFrame.new(-0.875, -0.2, -1.25) * CFrame.Angles(-1.0471975511965976, 0, 0) }):Play()
+                            TweenService:Create(p4[3], TweenInfo.new(0), { C1 = CFrame.new(1.2, -0.05, -1.65) * CFrame.Angles(-1.5707963267948966, 0.6108652381980153, -0.4363323129985824) }):Play()
+                            if p4[5]:FindFirstChild("Handle") then
+                                TweenService:Create(p4[2], TweenInfo.new(0), {C1 = set.RightPos}):Play()
+                                TweenService:Create(p4[3], TweenInfo.new(0), {C1 = set.LeftPos}):Play()
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end
+
+-- HITBOX
+do
+    local State = _G.KZ.State
+    local Players = _G.KZ.Players
+    local player = _G.KZ.player
+    local new = _G.KZ.new
+    local isInList = _G.KZ.isInList
+
+    local function applyHitboxToChar(char, sx, sy, sz)
+        if not char or not char:IsA("Model") then return end
+        local head = char:FindFirstChild("Head")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not head or not head:IsA("BasePart") then return end
+
+        if hum and hum.AutomaticScalingEnabled then
+            hum.AutomaticScalingEnabled = false
+        end
+
+        local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+        if torso then
+            local neck = torso:FindFirstChild("Neck") or head:FindFirstChild("Neck")
+            if neck and neck:IsA("Motor6D") then
+                if not neck:FindFirstChild("OriginalC0") then
+                    local origC0 = Instance.new("CFrameValue")
+                    origC0.Name = "OriginalC0"
+                    origC0.Value = neck.C0
+                    origC0.Parent = neck
+                end
+                neck.C0 = neck.OriginalC0.Value
+            end
+        end
+
+        local targetSize = Vector3.new(sx, sy, sz)
+        if head.Size ~= targetSize then head.Size = targetSize end
+
+        head.CanCollide = false
+        head.Massless = true
+
+        for _, acc in ipairs(char:GetChildren()) do
+            if acc:IsA("Accessory") then
+                local handle = acc:FindFirstChild("Handle")
+                if handle then
+                    handle.CanCollide = false
+                    local origSize = handle:FindFirstChild("OriginalSize")
+                    if origSize then origSize:Destroy() end
+                    local accMesh = handle:FindFirstChildOfClass("SpecialMesh")
+                    if accMesh then
+                        if not accMesh:FindFirstChild("FixedScale") then
+                            local saved = Instance.new("Vector3Value")
+                            saved.Name = "FixedScale"
+                            saved.Value = accMesh.Scale
+                            saved.Parent = accMesh
+                        end
+                        accMesh.Scale = accMesh.FixedScale.Value
+                    end
+                end
+            end
+        end
+    end
+
+    local function applyInvisibleHitboxToChar(char, sx, sy, sz)
+        if not char or not char:IsA("Model") then return end
+        local head = char:FindFirstChild("Head")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not head or not head:IsA("BasePart") then return end
+
+        if hum and hum.AutomaticScalingEnabled then
+            hum.AutomaticScalingEnabled = false
+        end
+
+        local headOrigSize = head:FindFirstChild("OriginalSize")
+        if headOrigSize then headOrigSize:Destroy() end
+
+        local targetSize = Vector3.new(sx, sy, sz)
+        if head.Size ~= targetSize then head.Size = targetSize end
+
+        local headMesh = head:FindFirstChildOfClass("SpecialMesh")
+        if headMesh then
+            if not headMesh:FindFirstChild("OriginalMeshScale") then
+                local savedScale = Instance.new("Vector3Value")
+                savedScale.Name = "OriginalMeshScale"
+                savedScale.Value = headMesh.Scale
+                savedScale.Parent = headMesh
+            end
+            local origScale = headMesh.OriginalMeshScale.Value
+            headMesh.Scale = Vector3.new(
+                origScale.X / (sx / 2),
+                origScale.Y / (sy / 1.2),
+                origScale.Z / (sz / 1)
+            )
+        end
+
+        head.CanCollide = false
+        head.Massless = true
+
+        local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+        if torso then
+            local neck = torso:FindFirstChild("Neck") or head:FindFirstChild("Neck")
+            if neck and neck:IsA("Motor6D") then
+                if not neck:FindFirstChild("OriginalC0") then
+                    local origC0 = Instance.new("CFrameValue")
+                    origC0.Name = "OriginalC0"
+                    origC0.Value = neck.C0
+                    origC0.Parent = neck
+                end
+                neck.C0 = neck.OriginalC0.Value
+            end
+        end
+
+        for _, acc in ipairs(char:GetChildren()) do
+            if acc:IsA("Accessory") then
+                local handle = acc:FindFirstChild("Handle")
+                if handle then
+                    handle.CanCollide = false
+                    local origSize = handle:FindFirstChild("OriginalSize")
+                    if origSize then origSize:Destroy() end
+                    local accMesh = handle:FindFirstChildOfClass("SpecialMesh")
+                    if accMesh then
+                        if not accMesh:FindFirstChild("FixedScale") then
+                            local saved = Instance.new("Vector3Value")
+                            saved.Name = "FixedScale"
+                            saved.Value = accMesh.Scale
+                            saved.Parent = accMesh
+                        end
+                        accMesh.Scale = accMesh.FixedScale.Value
+                    end
+                end
+            end
+        end
+    end
+
+    _G.KZ.applyHitboxToChar = applyHitboxToChar
+    _G.KZ.applyInvisibleHitboxToChar = applyInvisibleHitboxToChar
+
+    local regularLoopActive = false
+    function _G.KZ.enableRegularHitboxLoop()
+        if regularLoopActive then return end
+        regularLoopActive = true
+        task.spawn(function()
+            while regularLoopActive and State.hitboxEnabled do
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+                        if isInList(p.Name, State.hitboxTargets) then
+                            pcall(function() applyHitboxToChar(p.Character, State.hitboxX, State.hitboxY, State.hitboxZ) end)
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+    function _G.KZ.disableRegularHitboxLoop() regularLoopActive = false end
+    function _G.KZ.refreshRegularHitbox()
+        if not State.hitboxEnabled then return end
+        _G.KZ.disableRegularHitboxLoop()
+        task.wait(0.05)
+        _G.KZ.enableRegularHitboxLoop()
+    end
+
+    local invisibleLoopActive = false
+    function _G.KZ.enableInvisibleHitboxLoop()
+        if invisibleLoopActive then return end
+        invisibleLoopActive = true
+        task.spawn(function()
+            while invisibleLoopActive and State.invisibleHitboxEnabled do
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+                        if isInList(p.Name, State.invisibleHitboxTargets) then
+                            pcall(function() applyInvisibleHitboxToChar(p.Character, State.invisibleHitboxX, State.invisibleHitboxY, State.invisibleHitboxZ) end)
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
+    function _G.KZ.disableInvisibleHitboxLoop() invisibleLoopActive = false end
+    function _G.KZ.refreshInvisibleHitbox()
+        if not State.invisibleHitboxEnabled then return end
+        _G.KZ.disableInvisibleHitboxLoop()
+        task.wait(0.05)
+        _G.KZ.enableInvisibleHitboxLoop()
+    end
+
+    local function hookPlayer(p)
+        if p == player then return end
+        p.CharacterAdded:Connect(function(char)
+            task.wait(0.15)
+            if State.hitboxEnabled and isInList(p.Name, State.hitboxTargets) then
+                pcall(function() applyHitboxToChar(char, State.hitboxX, State.hitboxY, State.hitboxZ) end)
+            end
+            if State.invisibleHitboxEnabled and isInList(p.Name, State.invisibleHitboxTargets) then
+                pcall(function() applyInvisibleHitboxToChar(char, State.invisibleHitboxX, State.invisibleHitboxY, State.invisibleHitboxZ) end)
+            end
+        end)
+    end
+    for _, p in ipairs(Players:GetPlayers()) do hookPlayer(p) end
+    Players.PlayerAdded:Connect(hookPlayer)
+end
+
+-- NO RECOIL + AMMO
+do
+    local State = _G.KZ.State
+    local ReplicatedStorage = _G.KZ.ReplicatedStorage
+    local player = _G.KZ.player
+    local noRecoilActive = false
+    local patchedModules = {}
+    local RECOIL_KEYWORDS = { "recoil", "kickback", "kick", "aimpunch", "punch", "spread", "inacc", "bloom", "scatter", "dispersion", "deviation", "sway", "shake" }
+    local HARD_BLACKLIST = { "anim", "id", "name", "type", "rate", "firerate", "damage", "range", "ammo", "mag", "clip", "reload", "model", "handle", "sound", "sensitivity", "fov", "zoom", "crosshair", "cross", "optic", "sight", "gui", "hud", "view" }
+    local function hasBlacklist(key)
+        local n = tostring(key):lower()
+        for _, kw in ipairs(HARD_BLACKLIST) do if n:find(kw) then return true end end
+        return false
+    end
+    local function isRecoilKey(key)
+        if hasBlacklist(key) then return false end
+        local n = tostring(key):lower()
+        for _, kw in ipairs(RECOIL_KEYWORDS) do if n:find(kw) then return true end end
+        return false
+    end
+    local function zeroRecoilTable(tbl, depth, visited)
+        if type(tbl) ~= "table" then return end
+        depth = depth or 1; if depth > 6 then return end
+        visited = visited or {}
+        if visited[tbl] then return end
+        visited[tbl] = true
+        for k, v in pairs(tbl) do
+            if type(v) == "number" and isRecoilKey(k) then tbl[k] = 0
+            elseif type(v) == "table" then zeroRecoilTable(v, depth + 1, visited) end
+        end
+    end
+    local SNIPER_NAMES = { "AWP", "Remington MSR", "M40 Sniper", "RemingtonMSR", "M40" }
+    local function patchSniper(gunName)
+        if patchedModules[gunName] then return end
+        local configs = ReplicatedStorage:FindFirstChild("Configurations"); if not configs then return end
+        local acsGuns = configs:FindFirstChild("ACS_Guns"); if not acsGuns then return end
+        local gunFolder = acsGuns:FindFirstChild(gunName)
+        if not gunFolder then patchedModules[gunName] = true; return end
+        for _, modName in ipairs({"Settings", "Config"}) do
+            local mod = gunFolder:FindFirstChild(modName)
+            if mod and mod:IsA("ModuleScript") then
+                local ok, m = pcall(require, mod)
+                if ok and type(m) == "table" then zeroRecoilTable(m, 1) end
+            end
+        end
+        patchedModules[gunName] = true
+    end
+    function _G.KZ.enableNoRecoil()
+        if noRecoilActive then return end
+        noRecoilActive = true
+        for _, name in ipairs(SNIPER_NAMES) do pcall(function() patchSniper(name) end) end
+    end
+    function _G.KZ.disableNoRecoil()
+        if not noRecoilActive then return end
+        noRecoilActive = false; patchedModules = {}
+    end
+    local infiniteAmmoActive = false
+    local function refillAmmo(tool)
+        if not tool or not tool:IsA("Tool") then return end
+        pcall(function()
+            tool:SetAttribute("Ammo", math.huge); tool:SetAttribute("MaxAmmo", math.huge)
+            tool:SetAttribute("Clip", math.huge); tool:SetAttribute("Magazine", math.huge)
+            for _, obj in ipairs(tool:GetDescendants()) do
+                if obj:IsA("NumberValue") then
+                    local n = obj.Name:lower()
+                    if n:find("ammo") or n:find("clip") or n:find("mag") then obj.Value = 9999 end
+                end
+            end
+        end)
+    end
+    local function applyInfiniteAmmoAll()
+        pcall(function()
+            local bp = player:FindFirstChildOfClass("Backpack")
+            if bp then for _, tool in ipairs(bp:GetChildren()) do if tool:IsA("Tool") then refillAmmo(tool) end end end
+            if player.Character then for _, tool in ipairs(player.Character:GetChildren()) do if tool:IsA("Tool") then refillAmmo(tool) end end end
+        end)
+    end
+    function _G.KZ.enableInfiniteAmmo()
+        if infiniteAmmoActive then return end
+        infiniteAmmoActive = true; applyInfiniteAmmoAll()
+        task.spawn(function() while infiniteAmmoActive do pcall(applyInfiniteAmmoAll); task.wait(0.1) end end)
+    end
+    function _G.KZ.disableInfiniteAmmo() infiniteAmmoActive = false end
+end
+
+-- AIMBOT
+do
+    local State = _G.KZ.State
+    local Players = _G.KZ.Players
+    local player = _G.KZ.player
+    local RunService = _G.KZ.RunService
+    local UserInputService = _G.KZ.UserInputService
+    local aimbot = { active=false, aiming=false, character=nil, humanoidRootPart=nil, lastShotTime=0, shootInterval=0.15, maxDistance=300, connections={} }
+    local function isWhitelisted(targetPlayer)
+        local list = State.aimbotWhitelist
+        if not list or #list == 0 then return false end
+        local tName = targetPlayer.Name:lower()
+        local tDisp = targetPlayer.DisplayName:lower()
+        for _, entry in ipairs(list) do
+            local e = entry:lower():gsub("^@", "")
+            if e == tName or e == tDisp then return true end
+        end
+        return false
+    end
+    _G.KZ.isWhitelisted = isWhitelisted
+    local function getNearestEnemy()
+        local nearest, minDist = nil, math.huge
+        local camera = workspace.CurrentCamera
+        local root = aimbot.humanoidRootPart; if not root then return nil end
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer ~= player and not isWhitelisted(otherPlayer) then
+                local otherChar = otherPlayer.Character
+                if otherChar and otherChar:FindFirstChild("Head") and otherChar:FindFirstChild("Humanoid") and otherChar.Humanoid.Health > 0 then
+                    local head = otherChar.Head
+                    local distance = (head.Position - root.Position).Magnitude
+                    local _, onScreen = camera:WorldToViewportPoint(head.Position)
+                    if onScreen and distance < aimbot.maxDistance and distance < minDist then
+                        minDist = distance; nearest = otherPlayer
+                    end
+                end
+            end
+        end
+        return nearest
+    end
+    local function shoot()
+        local char = aimbot.character; if not char then return false end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool and tool:IsA("Tool") then tool:Activate(); return true end
+        return false
+    end
+    local function autoAim()
+        if not aimbot.active or not aimbot.aiming then return end
+        local enemy = getNearestEnemy()
+        if enemy then
+            local head = enemy.Character.Head
+            local camera = workspace.CurrentCamera
+            camera.CFrame = CFrame.new(camera.CFrame.Position, head.Position)
+            if tick() - aimbot.lastShotTime >= aimbot.shootInterval then
+                if shoot() then aimbot.lastShotTime = tick() end
+            end
+        end
+    end
+    local function onAimbotCharAdded(newChar)
+        aimbot.character = newChar
+        aimbot.humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+    end
+    function _G.KZ.startAimbotModule()
+        if aimbot.active then return end
+        aimbot.active = true; aimbot.aiming = true
+        aimbot.character = player.Character or player.CharacterAdded:Wait()
+        aimbot.humanoidRootPart = aimbot.character:WaitForChild("HumanoidRootPart")
+        table.insert(aimbot.connections, player.CharacterAdded:Connect(onAimbotCharAdded))
+        table.insert(aimbot.connections, UserInputService.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.KeyCode == Enum.KeyCode.Z then aimbot.aiming = not aimbot.aiming end
+        end))
+        table.insert(aimbot.connections, RunService.RenderStepped:Connect(autoAim))
+    end
+    function _G.KZ.stopAimbotModule()
+        if not aimbot.active then return end
+        aimbot.active = false; aimbot.aiming = false
+        for _, conn in ipairs(aimbot.connections) do pcall(function() conn:Disconnect() end) end
+        aimbot.connections = {}
+        aimbot.character = nil; aimbot.humanoidRootPart = nil
+    end
+    function _G.KZ.addToAimbotWhitelist(name)
+        if not name or name == "" then return false end
+        name = name:gsub("^%s+", ""):gsub("%s+$", "")
+        if name == "" then return false end
+        for _, e in ipairs(State.aimbotWhitelist) do
+            if e:lower() == name:lower() then return false end
+        end
+        table.insert(State.aimbotWhitelist, name)
+        print("[KZ Hub] ✅ Добавлен в whitelist: " .. name)
+        return true
+    end
+    function _G.KZ.removeFromAimbotWhitelist(name)
+        if not name or name == "" then return false end
+        for i = #State.aimbotWhitelist, 1, -1 do
+            if State.aimbotWhitelist[i]:lower() == name:lower() then
+                table.remove(State.aimbotWhitelist, i)
+                print("[KZ Hub] 🗑 Удалён из whitelist: " .. name)
+                return true
+            end
+        end
+        return false
+    end
+    function _G.KZ.clearAimbotWhitelist()
+        State.aimbotWhitelist = {}
+        print("[KZ Hub] 🧹 Whitelist очищен")
+    end
+    function _G.KZ.getAimbotWhitelistString()
+        if #State.aimbotWhitelist == 0 then return "— пусто —" end
+        return table.concat(State.aimbotWhitelist, ", ")
+    end
+end
+
+-- SKIN CHANGER + PRESETS
+do
+    local State = _G.KZ.State
+    local player = _G.KZ.player
+    local HttpService = _G.KZ.HttpService
+    local findChildChain = _G.KZ.findChildChain
+    function _G.KZ.scGetSkins()
+        local list = {"None"}
+        local seen = { None = true }
+        local pg = player:FindFirstChildOfClass("PlayerGui"); if not pg then return list end
+        local frame = findChildChain(pg, "UI", "Container", "Screen", "GunSkins", "Menu", "Body", "Main", "Index", "Frame")
+        if not frame then return list end
+        for _, row in ipairs(frame:GetChildren()) do
+            if row.Name == "SingleRow" then
+                for _, btn in ipairs(row:GetChildren()) do
+                    if btn:IsA("ImageButton") and not seen[btn.Name] then
+                        seen[btn.Name] = true
+                        table.insert(list, btn.Name)
+                    end
+                end
+            end
+        end
+        table.sort(list)
+        return list
+    end
+    local PRESETS_FILE = "KZHub_SkinPresets.json"
+    local SkinPresets = {}
+    local selectedPreset = "None"
+    _G.KZ.getSelectedPreset = function() return selectedPreset end
+    _G.KZ.setSelectedPreset = function(v) selectedPreset = v end
+    local function saveSkinPresetsToFile()
+        pcall(function() if writefile then writefile(PRESETS_FILE, HttpService:JSONEncode(SkinPresets)) end end)
+    end
+    local function loadSkinPresetsFromFile()
+        pcall(function()
+            if isfile and isfile(PRESETS_FILE) and readfile then
+                local data = readfile(PRESETS_FILE)
+                if data and data ~= "" then
+                    local ok, tbl = pcall(function() return HttpService:JSONDecode(data) end)
+                    if ok and type(tbl) == "table" then SkinPresets = tbl end
+                end
+            end
+        end)
+    end
+    function _G.KZ.savePresetForWeapon(weaponName)
+        if not weaponName or weaponName == "" or weaponName == "None" then return false end
+        SkinPresets[weaponName] = {
+            camo1=State.SC_Camo1, camo2=State.SC_Camo2, anim1=State.SC_Anim1, anim2=State.SC_Anim2,
+            useC1=State.SC_UseColor1, useC2=State.SC_UseColor2,
+            c1r=State.SC_Color1R, c1g=State.SC_Color1G, c1b=State.SC_Color1B,
+            c2r=State.SC_Color2R, c2g=State.SC_Color2G, c2b=State.SC_Color2B,
+        }
+        saveSkinPresetsToFile()
+        return true
+    end
+    local function applyPresetToWeaponObject(weapon, preset)
+        if not weapon or not preset then return false end
+        weapon:SetAttribute("Camo1", (preset.camo1 and preset.camo1 ~= "None") and preset.camo1 or nil)
+        weapon:SetAttribute("Camo2", (preset.camo2 and preset.camo2 ~= "None") and preset.camo2 or nil)
+        weapon:SetAttribute("Camo1Animated", preset.anim1 ~= false)
+        weapon:SetAttribute("Camo2Animated", preset.anim2 ~= false)
+        if preset.useC1 then weapon:SetAttribute("Camo1Color", Color3.fromRGB(preset.c1r or 255, preset.c1g or 255, preset.c1b or 255)) else weapon:SetAttribute("Camo1Color", nil) end
+        if preset.useC2 then weapon:SetAttribute("Camo2Color", Color3.fromRGB(preset.c2r or 255, preset.c2g or 255, preset.c2b or 255)) else weapon:SetAttribute("Camo2Color", nil) end
+        return true
+    end
+    function _G.KZ.applyPresetForWeapon(weaponName)
+        local p = SkinPresets[weaponName]; if not p then return false end
+        local att = player:FindFirstChild("Attachments"); if not att then return false end
+        local weapon = att:FindFirstChild(weaponName); if not weapon then return false end
+        return applyPresetToWeaponObject(weapon, p)
+    end
+    function _G.KZ.loadPresetIntoState(weaponName)
+        local p = SkinPresets[weaponName]; if not p then return end
+        State.SC_Camo1 = p.camo1 or "None"; State.SC_Camo2 = p.camo2 or "None"
+        State.SC_Anim1 = p.anim1 ~= false; State.SC_Anim2 = p.anim2 ~= false
+        State.SC_UseColor1 = p.useC1 == true; State.SC_UseColor2 = p.useC2 == true
+        State.SC_Color1R = p.c1r or 255; State.SC_Color1G = p.c1g or 255; State.SC_Color1B = p.c1b or 255
+        State.SC_Color2R = p.c2r or 255; State.SC_Color2G = p.c2g or 255; State.SC_Color2B = p.c2b or 255
+    end
+    function _G.KZ.deletePreset(weaponName)
+        if SkinPresets[weaponName] then SkinPresets[weaponName] = nil; saveSkinPresetsToFile() end
+    end
+    function _G.KZ.getPresetNames()
+        local names = {}
+        for k, _ in pairs(SkinPresets) do table.insert(names, k) end
+        table.sort(names)
+        if #names == 0 then table.insert(names, "— пусто —") end
+        return names
+    end
+    loadSkinPresetsFromFile()
+    function _G.KZ.scApply()
+        if State.SC_Weapon == "" or State.SC_Weapon == "None" then return end
+        if SkinPresets[State.SC_Weapon] then
+            if _G.KZ.applyPresetForWeapon(State.SC_Weapon) then return end
+        end
+        local att = player:FindFirstChild("Attachments"); if not att then return end
+        local weapon = att:FindFirstChild(State.SC_Weapon); if not weapon then return end
+        weapon:SetAttribute("Camo1", (State.SC_Camo1 ~= "None") and State.SC_Camo1 or nil)
+        weapon:SetAttribute("Camo2", (State.SC_Camo2 ~= "None") and State.SC_Camo2 or nil)
+        weapon:SetAttribute("Camo1Animated", State.SC_Anim1)
+        weapon:SetAttribute("Camo2Animated", State.SC_Anim2)
+        if State.SC_UseColor1 then weapon:SetAttribute("Camo1Color", Color3.fromRGB(State.SC_Color1R, State.SC_Color1G, State.SC_Color1B)) else weapon:SetAttribute("Camo1Color", nil) end
+        if State.SC_UseColor2 then weapon:SetAttribute("Camo2Color", Color3.fromRGB(State.SC_Color2R, State.SC_Color2G, State.SC_Color2B)) else weapon:SetAttribute("Camo2Color", nil) end
+    end
+    function _G.KZ.scReset()
+        if State.SC_Weapon == "" or State.SC_Weapon == "None" then return end
+        local att = player:FindFirstChild("Attachments")
+        local weapon = att and att:FindFirstChild(State.SC_Weapon)
+        if weapon then
+            weapon:SetAttribute("Camo1", nil); weapon:SetAttribute("Camo2", nil)
+            weapon:SetAttribute("Camo1Color", nil); weapon:SetAttribute("Camo2Color", nil)
+        end
+    end
+end
+
+-- VISUAL ACCESSORIES (крылья опущены ниже)
+do
+    local State = _G.KZ.State
+    local player = _G.KZ.player
+    local new = _G.KZ.new
+    local RunService = _G.KZ.RunService
+
+    local accessoryFolder = nil
+    local currentAccessoryName = nil
+    local animationConnections = {}
+
+    _G.KZ.getCurrentAccessoryName = function() return currentAccessoryName end
+    _G.KZ.setCurrentAccessoryName = function(v) currentAccessoryName = v end
+
+    local function stopAnimations()
+        for _, conn in ipairs(animationConnections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        animationConnections = {}
+    end
+
+    local function ensureFolder()
+        local char = player.Character; if not char then return nil end
+        if not accessoryFolder or not accessoryFolder.Parent or accessoryFolder.Parent ~= char then
+            if accessoryFolder then pcall(function() accessoryFolder:Destroy() end) end
+            accessoryFolder = new("Folder",{Name="KZ_Accessories",Parent=char})
+        end
+        return accessoryFolder
+    end
+
+    function _G.KZ.removeAccessory()
+        stopAnimations()
+        if accessoryFolder then
+            for _, c in ipairs(accessoryFolder:GetChildren()) do c:Destroy() end
+        end
+        currentAccessoryName = nil
+    end
+
+    local function addEffectsToPart(part, color, opts)
+        opts = opts or {}
+        if opts.particles ~= false then
+            new("ParticleEmitter", {
+                Name = "KZ_Sparkle",
+                Texture = "rbxasset://textures/particles/sparkles_main.dds",
+                Color = ColorSequence.new(color, Color3.fromRGB(255,255,255)),
+                Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0)}),
+                Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1)}),
+                Lifetime = NumberRange.new(0.6, 1.2),
+                Rate = 12,
+                Speed = NumberRange.new(1, 3),
+                SpreadAngle = Vector2.new(180, 180),
+                LightEmission = 0.8,
+                LightInfluence = 0,
+                Parent = part
+            })
+        end
+        if opts.trail then
+            local a0 = new("Attachment", {Name="KZ_Trail_A0", Parent=part})
+            local a1 = new("Attachment", {Name="KZ_Trail_A1", Parent=part})
+            a0.Position = Vector3.new(0, part.Size.Y / 2, 0)
+            a1.Position = Vector3.new(0, -part.Size.Y / 2, 0)
+            new("Trail", {
+                Attachment0 = a0,
+                Attachment1 = a1,
+                Color = ColorSequence.new(color, Color3.fromRGB(255,255,255)),
+                Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)}),
+                Lifetime = 0.4,
+                MinLength = 0,
+                FaceCamera = true,
+                LightEmission = 0.6,
+                Parent = part
+            })
+        end
+        if opts.light ~= false then
+            new("PointLight", {
+                Color = color,
+                Range = 8,
+                Brightness = 1.5,
+                Shadows = false,
+                Parent = part
+            })
+        end
+    end
+
+    local function createChinaHat()
+        local char = player.Character; if not char then return end
+        _G.KZ.removeAccessory()
+        local folder = ensureFolder(); if not folder then return end
+        local head = char:FindFirstChild("Head"); if not head then return end
+
+        local hat = new("Part", {
+            Name = "KZ_ChinaHat",
+            Size = Vector3.new(3, 3, 3),
+            Color = State.AccessoryColor,
+            Material = Enum.Material.Neon,
+            Transparency = 0.15,
+            Anchored = false, CanCollide = false, Massless = true, CastShadow = false,
+            Parent = folder
+        })
+        new("SpecialMesh", {
+            MeshType = Enum.MeshType.FileMesh,
+            MeshId = "rbxassetid://1033714",
+            Scale = Vector3.new(1.7, 1.1, 1.7),
+            Parent = hat
+        })
+
+        local baseOffset = Vector3.new(0, 0.9, 0)
+        local weld = new("Weld", {Part0=head, Part1=hat, C0=CFrame.new(baseOffset), Parent=hat})
+
+        addEffectsToPart(hat, State.AccessoryColor, {trail = true, light = true})
+        new("Highlight", {
+            FillColor = State.AccessoryColor, FillTransparency = 0.6,
+            OutlineColor = Color3.fromRGB(255,255,255), OutlineTransparency = 0.3,
+            Parent = hat
+        })
+
+        local startTime = tick()
+        local conn = RunService.RenderStepped:Connect(function()
+            if not hat.Parent then return end
+            local t = tick() - startTime
+            local yOff = math.sin(t * 2) * 0.15
+            local rot = t * 0.7
+            weld.C0 = CFrame.new(baseOffset + Vector3.new(0, yOff, 0)) * CFrame.Angles(0, rot, 0)
+        end)
+        table.insert(animationConnections, conn)
+    end
+
+    local function createAngelWings()
+        local char = player.Character; if not char then return end
+        _G.KZ.removeAccessory()
+        local folder = ensureFolder(); if not folder then return end
+        local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
+        if not root then return end
+
+        local wings = {}
+        local WING_Y = 0.9   -- опущены ниже
+
+        for side = -1, 1, 2 do
+            local wingModel = new("Model", {Name = "KZ_Wing_"..(side == 1 and "R" or "L"), Parent = folder})
+
+            local rootPart = new("Part", {
+                Name = "Root",
+                Size = Vector3.new(0.1, 0.1, 0.1),
+                Transparency = 1,
+                CanCollide = false, Massless = true, Anchored = false, CastShadow = false,
+                Parent = wingModel
+            })
+            local rootWeld = new("Weld", {
+                Part0 = root, Part1 = rootPart,
+                C0 = CFrame.new(side * 0.5, WING_Y, 0.6),
+                Parent = rootPart
+            })
+
+            local feathers = {}
+            local ROWS = 3
+            local FEATHERS_PER_ROW = 10
+
+            for row = 1, ROWS do
+                local rowLengthFactor = 1 + (row - 1) * 0.4
+                local rowYOffset = -(row - 1) * 0.6
+                local rowZOffset = (row - 1) * 0.15
+
+                for i = 1, FEATHERS_PER_ROW do
+                    local t = (i - 1) / (FEATHERS_PER_ROW - 1)
+                    local featherLen = (1.6 + t * 2.2) * rowLengthFactor
+                    local angle = math.rad(15 + t * 55)
+
+                    local px = side * (0.1 + t * 1.6)
+                    local py = 0.3 + math.cos(angle) * featherLen * 0.5 + rowYOffset
+                    local pz = 0.1 + rowZOffset
+
+                    local feather = new("Part", {
+                        Name = "F_"..row.."_"..i,
+                        Size = Vector3.new(0.10, featherLen, 0.22),
+                        Color = State.AccessoryColor,
+                        Material = Enum.Material.Neon,
+                        Transparency = 0.25,
+                        CanCollide = false, Massless = true, Anchored = false, CastShadow = false,
+                        Parent = wingModel
+                    })
+
+                    local cf = CFrame.new(px, py, pz) * CFrame.Angles(-angle, 0, side * math.rad(8 + t * 12))
+
+                    local weld = new("Weld", {
+                        Part0 = rootPart,
+                        Part1 = feather,
+                        C0 = cf,
+                        Parent = feather
+                    })
+
+                    table.insert(feathers, {
+                        part = feather,
+                        weld = weld,
+                        basePx = px, basePy = py, basePz = pz,
+                        baseAngle = angle,
+                        t = t,
+                        row = row,
+                        side = side,
+                    })
+
+                    if i % 3 == 0 then
+                        addEffectsToPart(feather, State.AccessoryColor, {particles = true, trail = false, light = false})
+                    end
+                end
+            end
+
+            table.insert(wings, {
+                model = wingModel,
+                rootPart = rootPart,
+                rootWeld = rootWeld,
+                feathers = feathers,
+                side = side,
+            })
+
+            new("Highlight", {
+                FillColor = State.AccessoryColor, FillTransparency = 0.75,
+                OutlineColor = Color3.fromRGB(255,255,255), OutlineTransparency = 0.3,
+                Parent = wingModel
+            })
+        end
+
+        local startTime = tick()
+        local conn = RunService.RenderStepped:Connect(function()
+            if not folder.Parent then return end
+            local t = tick() - startTime
+            local flap = math.sin(t * 2.5) * math.rad(22)
+
+            for _, wing in ipairs(wings) do
+                if wing.rootPart.Parent then
+                    local sideRot = wing.side == 1 and math.rad(-15) or math.rad(15)
+                    wing.rootWeld.C0 = CFrame.new(wing.side * 0.5, WING_Y, 0.6)
+                        * CFrame.Angles(flap * 0.5, sideRot, flap * wing.side)
+
+                    for _, f in ipairs(wing.feathers) do
+                        if f.part.Parent then
+                            local wave = math.sin(t * 3 + f.t * 3 + f.row * 0.5) * 0.04
+                            local ang = f.baseAngle + wave
+                            local cf = CFrame.new(f.basePx, f.basePy, f.basePz)
+                                * CFrame.Angles(-ang, 0, f.side * math.rad(8 + f.t * 12))
+                            f.weld.C0 = cf
+                            f.part.Transparency = 0.2 + math.abs(math.sin(t * 2.5 + f.t * 2)) * 0.2
+                        end
+                    end
+                end
+            end
+        end)
+        table.insert(animationConnections, conn)
+    end
+
+    local function createPlasmaAura()
+        local char = player.Character; if not char then return end
+        _G.KZ.removeAccessory()
+        local folder = ensureFolder(); if not folder then return end
+        local root = char:FindFirstChild("HumanoidRootPart"); if not root then return end
+
+        local ringCount = 16
+        local ringParts = {}
+        for i = 1, ringCount do
+            local angle = (i / ringCount) * math.pi * 2
+            local r = 3
+            local part = new("Part", {
+                Name = "KZ_AuraOrb_"..i,
+                Size = Vector3.new(0.35, 0.35, 0.35),
+                Shape = Enum.PartType.Ball,
+                Color = State.AccessoryColor, Material = Enum.Material.Neon,
+                Transparency = 0.15,
+                CanCollide = false, Massless = true, Anchored = false, CastShadow = false,
+                Parent = folder
+            })
+            local baseX = math.cos(angle) * r
+            local baseZ = math.sin(angle) * r
+            local weld = new("Weld", {Part0=root, Part1=part, C0=CFrame.new(baseX, 0, baseZ), Parent=part})
+            addEffectsToPart(part, State.AccessoryColor, {particles = true, light = false})
+            table.insert(ringParts, {part=part, weld=weld, angle=angle})
+        end
+
+        local glow = new("Part", {
+            Name = "KZ_AuraGlow",
+            Size = Vector3.new(2, 2, 2), Shape = Enum.PartType.Ball,
+            Color = State.AccessoryColor, Material = Enum.Material.Neon,
+            Transparency = 0.85,
+            CanCollide = false, Massless = true, Anchored = false, CastShadow = false,
+            Parent = folder
+        })
+        new("Weld", {Part0=root, Part1=glow, C0=CFrame.new(0,0,0), Parent=glow})
+        new("PointLight", {Color=State.AccessoryColor, Range=12, Brightness=2, Shadows=false, Parent=glow})
+
+        local startTime = tick()
+        local conn = RunService.RenderStepped:Connect(function()
+            if not folder.Parent then return end
+            local t = tick() - startTime
+            local ringRot = t * 1.5
+            local bob = math.sin(t * 2) * 0.5
+            for _, rp in ipairs(ringParts) do
+                local a = rp.angle + ringRot
+                rp.weld.C0 = CFrame.new(math.cos(a) * 3, bob, math.sin(a) * 3)
+            end
+            glow.Transparency = 0.7 + math.abs(math.sin(t * 3)) * 0.25
+        end)
+        table.insert(animationConnections, conn)
+    end
+
+    local function createFireCrown()
+        local char = player.Character; if not char then return end
+        _G.KZ.removeAccessory()
+        local folder = ensureFolder(); if not folder then return end
+        local head = char:FindFirstChild("Head"); if not head then return end
+
+        local crownCount = 10
+        local crownParts = {}
+        for i = 1, crownCount do
+            local angle = (i / crownCount) * math.pi * 2
+            local part = new("Part", {
+                Name = "KZ_FireCrown_"..i,
+                Size = Vector3.new(0.3, 0.6, 0.3), Shape = Enum.PartType.Ball,
+                Color = Color3.fromRGB(255, 120, 30), Material = Enum.Material.Neon,
+                Transparency = 0.1,
+                CanCollide = false, Massless = true, Anchored = false, CastShadow = false,
+                Parent = folder
+            })
+            local x = math.cos(angle) * 0.9
+            local z = math.sin(angle) * 0.9
+            local weld = new("Weld", {Part0=head, Part1=part, C0=CFrame.new(x, 1.2, z), Parent=part})
+            new("Fire", {Color=Color3.fromRGB(255, 180, 50), SecondaryColor=Color3.fromRGB(255, 50, 20), Size=2, Heat=5, Parent=part})
+            new("PointLight", {Color=Color3.fromRGB(255,150,50), Range=5, Brightness=1, Shadows=false, Parent=part})
+            table.insert(crownParts, {part=part, weld=weld, angle=angle})
+        end
+
+        local startTime = tick()
+        local conn = RunService.RenderStepped:Connect(function()
+            if not folder.Parent then return end
+            local t = tick() - startTime
+            for _, cp in ipairs(crownParts) do
+                local bob = math.sin(t * 4 + cp.angle) * 0.1
+                local x = math.cos(cp.angle) * 0.9
+                local z = math.sin(cp.angle) * 0.9
+                cp.weld.C0 = CFrame.new(x, 1.2 + bob, z)
+                cp.part.Transparency = 0.05 + math.abs(math.sin(t * 5 + cp.angle)) * 0.2
+            end
+        end)
+        table.insert(animationConnections, conn)
+    end
+
+    local function createStarOrbit()
+        local char = player.Character; if not char then return end
+        _G.KZ.removeAccessory()
+        local folder = ensureFolder(); if not folder then return end
+        local root = char:FindFirstChild("HumanoidRootPart"); if not root then return end
+        local stars = {}
+        local count = 12
+        for i = 1, count do
+            local a = (i / count) * math.pi * 2
+            local star = new("Part", {
+                Name = "KZ_OrbitStar_"..i, Shape = Enum.PartType.Ball,
+                Size = Vector3.new(0.22, 0.22, 0.22), Color = State.AccessoryColor,
+                Material = Enum.Material.Neon, Transparency = 0.05,
+                CanCollide = false, Massless = true, Anchored = false, CastShadow = false,
+                Parent = folder
+            })
+            new("PointLight", {Color=State.AccessoryColor, Range=4, Brightness=0.7, Shadows=false, Parent=star})
+            local weld = new("Weld", {Part0=root, Part1=star, C0=CFrame.new(0, 0, 0), Parent=star})
+            table.insert(stars, {part=star, weld=weld, angle=a, index=i})
+        end
+        local conn = RunService.RenderStepped:Connect(function()
+            if not folder.Parent then return end
+            local t = tick()
+            for _, item in ipairs(stars) do
+                if item.part.Parent then
+                    local a = item.angle + t * 1.25
+                    local radius = 2.5 + math.sin(t * 2 + item.index) * 0.22
+                    local y = math.sin(t * 2.2 + item.angle) * 1.25
+                    item.weld.C0 = CFrame.new(math.cos(a) * radius, y, math.sin(a) * radius)
+                    local pulse = 0.75 + (math.sin(t * 5 + item.index) + 1) * 0.12
+                    item.part.Size = Vector3.new(pulse, pulse, pulse)
+                end
+            end
+        end)
+        table.insert(animationConnections, conn)
+    end
+
+    local AccessoriesList = {
+        ChinaHat = true,
+        AngelWings = true,
+        PlasmaAura = true,
+        FireCrown = true,
+        StarOrbit = true,
+    }
+
+    function _G.KZ.equipAccessory(key)
+        if not AccessoriesList[key] then return end
+        if currentAccessoryName == key then _G.KZ.removeAccessory(); return end
+        if key == "ChinaHat" then createChinaHat(); currentAccessoryName = key
+        elseif key == "AngelWings" then createAngelWings(); currentAccessoryName = key
+        elseif key == "PlasmaAura" then createPlasmaAura(); currentAccessoryName = key
+        elseif key == "FireCrown" then createFireCrown(); currentAccessoryName = key
+        elseif key == "StarOrbit" then createStarOrbit(); currentAccessoryName = key
+        end
+    end
+
+    function _G.KZ.refreshAccessoryColor()
+        if currentAccessoryName then
+            local n = currentAccessoryName
+            currentAccessoryName = nil
+            task.wait(0.05)
+            pcall(function() _G.KZ.equipAccessory(n) end)
+        end
+    end
+
+    player.CharacterAdded:Connect(function(newChar)
+        State.CurrentKillStreak = 0
+        stopAnimations()
+        accessoryFolder = nil
+        task.wait(1)
+        if currentAccessoryName then
+            local n = currentAccessoryName
+            currentAccessoryName = nil
+            pcall(function() _G.KZ.equipAccessory(n) end)
+        end
+    end)
+end
+
+-- ВИЗУАЛЬНЫЙ НИК
+do
+    local State = _G.KZ.State
+    local player = _G.KZ.player
+    local RunService = _G.KZ.RunService
+    local matchedLabels = {}
+    local hookedLabels = setmetatable({}, { __mode = "k" })
+    local headHookConn = nil
+    local lastFullScan = 0
+    local SCAN_INTERVAL = 3
+    local function stripTags(txt) if not txt then return "" end return (txt:gsub("<[^>]->", "")) end
+    local function classify(text)
+        if not text or text == "" then return nil end
+        local lc = stripTags(text):lower()
+        local nameL = player.Name:lower()
+        local dispL = player.DisplayName:lower()
+        if lc:find("@" .. nameL, 1, true) then return "user" end
+        if lc:find(nameL, 1, true) then return "user" end
+        if dispL ~= "" and lc:find(dispL, 1, true) then return "display" end
+        return nil
+    end
+    local function computeNewText(entry)
+        if entry.kind == "user" then
+            local newText = State.CustomUserName
+            if entry.origText:sub(1,1) == "@" or entry.origText:find("@", 1, true) then newText = "@" .. newText end
+            return newText
+        else
+            return State.CustomDisplayName
+        end
+    end
+    local function makeEntry(d, kind) return { d=d, origText=d.Text, kind=kind } end
+    local function hookLabel(entry)
+        local d = entry.d
+        if hookedLabels[d] then return end
+        hookedLabels[d] = true
+        d:GetPropertyChangedSignal("Text"):Connect(function()
+            if not State.CustomNameEnabled then return end
+            for _, m in ipairs(matchedLabels) do
+                if m.d == d then
+                    local want = computeNewText(m)
+                    if d.Text ~= want then d.Text = want end
+                    return
+                end
+            end
+        end)
+    end
+    local function scanRoot(root)
+        if not root then return end
+        for _, d in ipairs(root:GetDescendants()) do
+            if (d:IsA("TextLabel") or d:IsA("TextButton")) and d.Text ~= "" then
+                local kind = classify(d.Text)
+                if kind then
+                    local found
+                    for _, e in ipairs(matchedLabels) do if e.d == d then found = e break end end
+                    if not found then
+                        found = makeEntry(d, kind)
+                        table.insert(matchedLabels, found)
+                        hookLabel(found)
+                    elseif not found.kind then found.kind = kind end
+                end
+            end
+        end
+    end
+    local function scanCharacterHead()
+        local char = player.Character; if not char then return end
+        local head = char:FindFirstChild("Head"); if not head then return end
+        for _, c in ipairs(head:GetChildren()) do
+            if c:IsA("BillboardGui") then scanRoot(c) end
+        end
+    end
+    local function scanPlayerGui()
+        local pg = player:FindFirstChildOfClass("PlayerGui"); if not pg then return end
+        for _, top in ipairs(pg:GetChildren()) do
+            if top:IsA("BillboardGui") then
+                scanRoot(top)
+            elseif top:IsA("ScreenGui") then
+                for _, c in ipairs(top:GetChildren()) do
+                    if c:IsA("TextLabel") or c:IsA("TextButton") then
+                        local kind = classify(c.Text)
+                        if kind then
+                            local found
+                            for _, e in ipairs(matchedLabels) do if e.d == c then found = e break end end
+                            if not found then
+                                found = makeEntry(c, kind)
+                                table.insert(matchedLabels, found)
+                                hookLabel(found)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local function fullScan()
+        local prev = matchedLabels
+        matchedLabels = {}
+        for _, e in ipairs(prev) do
+            if e.d and e.d.Parent then table.insert(matchedLabels, e) end
+        end
+        scanCharacterHead()
+        scanPlayerGui()
+    end
+    local function applyToAll()
+        for _, e in ipairs(matchedLabels) do
+            local d = e.d
+            if d and d.Parent then
+                local want = computeNewText(e)
+                if d.Text ~= want then d.Text = want end
+            end
+        end
+    end
+    local function restoreAll()
+        for _, e in ipairs(matchedLabels) do
+            local d = e.d
+            pcall(function()
+                if d and d.Parent and e.origText then d.Text = e.origText end
+            end)
+        end
+        matchedLabels = {}
+    end
+    local function hookHead()
+        if headHookConn then headHookConn:Disconnect(); headHookConn = nil end
+        local char = player.Character; if not char then return end
+        local head = char:WaitForChild("Head", 5); if not head then return end
+        headHookConn = head.ChildAdded:Connect(function(c)
+            if not State.CustomNameEnabled then return end
+            if c:IsA("BillboardGui") then
+                task.wait(0.05)
+                scanRoot(c)
+                applyToAll()
+            end
+        end)
+    end
+    RunService.RenderStepped:Connect(function()
+        if not State.CustomNameEnabled then return end
+        local now = tick()
+        if now - lastFullScan > SCAN_INTERVAL then
+            lastFullScan = now
+            pcall(fullScan)
+        end
+        pcall(applyToAll)
+    end)
+    function _G.KZ.updateCustomName()
+        if State.CustomNameEnabled then
+            pcall(fullScan); pcall(applyToAll); hookHead()
+        else
+            restoreAll()
+            if headHookConn then headHookConn:Disconnect(); headHookConn = nil end
+        end
+    end
+    player.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if State.CustomNameEnabled then pcall(fullScan); pcall(applyToAll); hookHead() end
+    end)
+end
+
+-- ID UTILS
+do
+    function _G.KZ.extractId(str)
+        if not str then return nil end
+        local s = tostring(str)
+        s = s:gsub("rbxassetid://", ""):gsub("rbxasset://", "")
+        s = s:gsub("https://", ""):gsub("http://", ""):gsub("www%.", "")
+        s = s:gsub("roblox%.com/catalog/", ""):gsub("roblox%.com/library/", "")
+        local numStr = s:match("%d%d%d+")
+        if not numStr then warn("[KZ Hub] ❌ Нет ID в '" .. s .. "'") return nil end
+        return tonumber(numStr)
+    end
+    local function fetchAssetXml(id)
+        local urls = {
+            "https://assetdelivery.roblox.com/v1/asset/?id=" .. id,
+            "https://assetdelivery.roblox.com/v1/asset?id=" .. id,
+            "https://www.roblox.com/asset/?id=" .. id,
+        }
+        for _, url in ipairs(urls) do
+            local ok, res = pcall(function() return game:HttpGet(url, true) end)
+            if ok and type(res) == "string" and #res > 0 then
+                local trimmed = res:gsub("^%s+", ""):gsub("%s+$", "")
+                if trimmed:sub(1, 1) == "<" then return trimmed end
+            end
+        end
+        return nil
+    end
+    function _G.KZ.tryLoadAsset(id)
+        local ok1, res1 = pcall(function() return game:GetObjects("rbxassetid://" .. tostring(id)) end)
+        if ok1 and type(res1) == "table" and #res1 > 0 then return res1[1], "GetObjects" end
+        local xml = fetchAssetXml(id)
+        if xml then
+            local ok2, res2 = pcall(function() return game:GetService("InsertService"):LoadLocalAsset(xml) end)
+            if ok2 and res2 then return res2, "LoadLocalAsset" end
+        end
+        return nil, "все способы не сработали"
+    end
+    function _G.KZ.extractHandle(model)
+        for _, c in ipairs(model:GetDescendants()) do
+            if c:IsA("Script") or c:IsA("LocalScript") or c:IsA("ModuleScript") or c:IsA("Humanoid") or c:IsA("Animator") or c:IsA("Sound") or c:IsA("ParticleEmitter") or c:IsA("Fire") or c:IsA("Smoke") or c:IsA("Trail") then
+                pcall(function() c:Destroy() end)
+            end
+        end
+        local handle
+        if model:IsA("BasePart") then handle = model
+        else
+            handle = model:FindFirstChild("Handle", true)
+            if not handle or not handle:IsA("BasePart") then
+                for _, c in ipairs(model:GetDescendants()) do
+                    if c:IsA("BasePart") then handle = c break end
+                end
+            end
+        end
+        return handle
+    end
+    function _G.KZ.sanitize(inst)
+        if not inst then return end
+        inst.Anchored = false; inst.CanCollide = false; inst.CanQuery = false
+        inst.CanTouch = false; inst.Massless = true; inst.CastShadow = false
+        for _, c in ipairs(inst:GetDescendants()) do
+            if c:IsA("Script") or c:IsA("LocalScript") or c:IsA("ModuleScript")
+               or c:IsA("Highlight") or c:IsA("ParticleEmitter") or c:IsA("Fire")
+               or c:IsA("Smoke") or c:IsA("Sparkles") or c:IsA("Trail")
+               or c:IsA("Beam") or c:IsA("Sound")
+               or c:IsA("PointLight") or c:IsA("SpotLight") or c:IsA("SurfaceLight")
+               or c:IsA("Motor6D") or c:IsA("HingeConstraint")
+               or c:IsA("RopeConstraint") or c:IsA("RodConstraint")
+               or c:IsA("SpringConstraint") or c:IsA("AlignPosition")
+               or c:IsA("AlignOrientation") or c:IsA("BallSocketConstraint")
+               or c:IsA("Humanoid") or c:IsA("Animator") then
+                pcall(function() c:Destroy() end)
+            end
+        end
+    end
+end
+
+-- АКСЕССУАРЫ ПО ID
+do
+    local State = _G.KZ.State
+    local player = _G.KZ.player
+    local new = _G.KZ.new
+    local accByIdFolder = nil
+    local function getAccByIdFolder()
+        local char = player.Character; if not char then return nil end
+        if not accByIdFolder or accByIdFolder.Parent ~= char then
+            if accByIdFolder then pcall(function() accByIdFolder:Destroy() end) end
+            accByIdFolder = new("Folder", {Name="KZ_AccByID", Parent=char})
+        end
+        return accByIdFolder
+    end
+    function _G.KZ.equipAccessoryById(idInput)
+        local numId = _G.KZ.extractId(idInput); if not numId then return end
+        print("[KZ Hub] 🔎 AccByID: " .. numId)
+        local char = player.Character; if not char then return end
+        local head = char:FindFirstChild("Head"); if not head then return end
+        local folder = getAccByIdFolder(); if not folder then return end
+        task.spawn(function()
+            local model, source = _G.KZ.tryLoadAsset(numId)
+            if not model then warn("[KZ Hub] ❌ " .. numId .. " (" .. tostring(source) .. ")") return end
+            local handle = _G.KZ.extractHandle(model)
+            if not handle then warn("[KZ Hub] ❌ Нет BasePart") pcall(function() model:Destroy() end) return end
+            handle.Parent = folder
+            _G.KZ.sanitize(handle)
+            handle.Transparency = 0
+            local oldWeld = handle:FindFirstChild("KZ_AccWeld"); if oldWeld then oldWeld:Destroy() end
+            handle.CFrame = head.CFrame * CFrame.new(0, 0.5, 0)
+            new("Weld", {Name="KZ_AccWeld", Part0=head, Part1=handle, C0=CFrame.new(0, 0.5, 0), Parent=handle})
+            pcall(function() model:Destroy() end)
+            table.insert(State.AccByIdList, handle)
+        end)
+    end
+    function _G.KZ.removeAllAccById()
+        for _, inst in ipairs(State.AccByIdList) do
+            pcall(function() if inst and inst.Parent then inst:Destroy() end end)
+        end
+        State.AccByIdList = {}
+        if accByIdFolder then pcall(function() accByIdFolder:Destroy() end); accByIdFolder = nil end
+    end
+    player.CharacterAdded:Connect(function() task.wait(0.3); State.AccByIdList = {}; accByIdFolder = nil end)
+end
+
+-- ЧАСТИ ТЕЛА ПО ID
+do
+    local State = _G.KZ.State
+    local player = _G.KZ.player
+    local new = _G.KZ.new
+    local bodyPartFolder = nil
+    local function getBodyPartFolder()
+        local char = player.Character; if not char then return nil end
+        if not bodyPartFolder or bodyPartFolder.Parent ~= char then
+            if bodyPartFolder then pcall(function() bodyPartFolder:Destroy() end) end
+            bodyPartFolder = new("Folder", {Name="KZ_BodyByID", Parent=char})
+        end
+        return bodyPartFolder
+    end
+    local BODY_PART_MAP = {
+        ["Head"] = {"Head"},
+        ["Torso"] = {"Torso", "UpperTorso", "LowerTorso"},
+        ["HumanoidRootPart"] = {"HumanoidRootPart"},
+        ["Left Arm"] = {"Left Arm", "LeftUpperArm", "LeftLowerArm"},
+        ["Right Arm"] = {"Right Arm", "RightUpperArm", "RightLowerArm"},
+        ["Left Leg"] = {"Left Leg", "LeftUpperLeg", "LeftLowerLeg"},
+        ["Right Leg"] = {"Right Leg", "RightUpperLeg", "RightLowerLeg"},
+    }
+    local function getTargetBodyPart(name)
+        local char = player.Character; if not char then return nil end
+        local list = BODY_PART_MAP[name] or {name}
+        for _, n in ipairs(list) do
+            local p = char:FindFirstChild(n)
+            if p and p:IsA("BasePart") then return p end
+        end
+        return nil
+    end
+    local function removeAllPreviousBodyParts()
+        for i = #State.BodyPartList, 1, -1 do
+            local inst = State.BodyPartList[i]
+            pcall(function() if inst and inst.Parent then inst:Destroy() end end)
+            table.remove(State.BodyPartList, i)
+        end
+    end
+    function _G.KZ.equipBodyPartById(idInput, partName)
+        local numId = _G.KZ.extractId(idInput); if not numId then return end
+        local target = getTargetBodyPart(partName)
+        if not target then warn("[KZ Hub] ❌ Часть '" .. tostring(partName) .. "' не найдена") return end
+        removeAllPreviousBodyParts()
+        local folder = getBodyPartFolder(); if not folder then return end
+        task.spawn(function()
+            local model, source = _G.KZ.tryLoadAsset(numId)
+            if not model then warn("[KZ Hub] ❌ " .. numId .. " (" .. tostring(source) .. ")") return end
+            local handle = _G.KZ.extractHandle(model)
+            if not handle then warn("[KZ Hub] ❌ Нет BasePart") pcall(function() model:Destroy() end) return end
+            handle.Parent = folder
+            _G.KZ.sanitize(handle)
+            handle.Transparency = 0
+            local oldWeld = handle:FindFirstChild("KZ_BodyWeld"); if oldWeld then oldWeld:Destroy() end
+            local offset = (target.Name == "Head") and CFrame.new(0, 0.5, 0) or CFrame.new(0, 0, 0)
+            handle.CFrame = target.CFrame * offset
+            new("Weld", {Name="KZ_BodyWeld", Part0=target, Part1=handle, C0=offset, Parent=handle})
+            pcall(function() model:Destroy() end)
+            table.insert(State.BodyPartList, handle)
+        end)
+    end
+    function _G.KZ.removeAllBodyPartsById()
+        removeAllPreviousBodyParts()
+        if bodyPartFolder then pcall(function() bodyPartFolder:Destroy() end); bodyPartFolder = nil end
+    end
+    player.CharacterAdded:Connect(function() task.wait(0.3); State.BodyPartList = {}; bodyPartFolder = nil end)
+end
+
+-- 2D ОДЕЖДА
+do
+    local player = _G.KZ.player
+    local new = _G.KZ.new
+    local originalClothing = { Shirt=nil, Pants=nil, ShirtGraphic=nil }
+    local function saveOriginalClothing()
+        local char = player.Character; if not char then return end
+        local s = char:FindFirstChildOfClass("Shirt"); if s then originalClothing.Shirt = s.ShirtTemplate end
+        local p = char:FindFirstChildOfClass("Pants"); if p then originalClothing.Pants = p.PantsTemplate end
+        local sg = char:FindFirstChildOfClass("ShirtGraphic"); if sg then originalClothing.ShirtGraphic = sg.Graphic end
+    end
+    saveOriginalClothing()
+    function _G.KZ.equip2DClothing(idInput, clothingType)
+        local numId = _G.KZ.extractId(idInput); if not numId then return end
+        local char = player.Character; if not char then return end
+        local asset = "rbxassetid://" .. numId
+        if clothingType == "T-Shirt" then
+            local sg = char:FindFirstChildOfClass("ShirtGraphic")
+            if not sg then sg = new("ShirtGraphic", {Parent=char}) end
+            sg.Graphic = asset
+        elseif clothingType == "Shirt" then
+            local s = char:FindFirstChildOfClass("Shirt")
+            if not s then s = new("Shirt", {Parent=char}) end
+            s.ShirtTemplate = asset
+        elseif clothingType == "Pants" then
+            local p = char:FindFirstChildOfClass("Pants")
+            if not p then p = new("Pants", {Parent=char}) end
+            p.PantsTemplate = asset
+        end
+    end
+    function _G.KZ.removeAll2DClothing()
+        local char = player.Character; if not char then return end
+        local s = char:FindFirstChildOfClass("Shirt"); if s then s.ShirtTemplate = "" end
+        local p = char:FindFirstChildOfClass("Pants"); if p then p.PantsTemplate = "" end
+        local sg = char:FindFirstChildOfClass("ShirtGraphic"); if sg then sg.Graphic = "" end
+    end
+    function _G.KZ.restoreOriginalClothing()
+        local char = player.Character; if not char then return end
+        if originalClothing.Shirt then
+            local s = char:FindFirstChildOfClass("Shirt")
+            if not s then s = new("Shirt", {Parent=char}) end
+            s.ShirtTemplate = originalClothing.Shirt
+        end
+        if originalClothing.Pants then
+            local p = char:FindFirstChildOfClass("Pants")
+            if not p then p = new("Pants", {Parent=char}) end
+            p.PantsTemplate = originalClothing.Pants
+        end
+        if originalClothing.ShirtGraphic then
+            local sg = char:FindFirstChildOfClass("ShirtGraphic")
+            if not sg then sg = new("ShirtGraphic", {Parent=char}) end
+            sg.Graphic = originalClothing.ShirtGraphic
+        end
+    end
+    player.CharacterAdded:Connect(function() task.wait(0.3); saveOriginalClothing() end)
+end
+
+-- FOV + LOW GRAPHICS + GAME UI HIDER
+do
+    local State = _G.KZ.State
+    local player = _G.KZ.player
+    local RunService = _G.KZ.RunService
+    local StarterGui = _G.KZ.StarterGui
+    local defaultFov = workspace.CurrentCamera and workspace.CurrentCamera.FieldOfView or 70
+    _G.KZ.defaultFov = defaultFov
+    RunService.RenderStepped:Connect(function()
+        if not State.FovEnabled then return end
+        local cam = workspace.CurrentCamera; if not cam then return end
+        if cam.FieldOfView ~= State.FovValue then cam.FieldOfView = State.FovValue end
+    end)
+    function _G.KZ.enableLowGraphics()
+        pcall(function()
+            _G.Settings = {Players={["Ignore Me"]=true,["Ignore Others"]=true},Meshes={Destroy=false,LowDetail=true},Images={Invisible=true,LowDetail=false,Destroy=false},["No Particles"]=true,["No Camera Effects"]=true,["No Explosions"]=true,["No Clothes"]=true,["Low Water Graphics"]=true,["No Shadows"]=true,["Low Rendering"]=true,["Low Quality Parts"]=true}
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/CasperFlyModz/discord.gg-rips/main/FPSBooster.lua"))()
+        end)
+    end
+    local function toggleGameUI()
+        pcall(function()
+            local pg = player:FindFirstChildOfClass("PlayerGui"); if not pg then return end
+            local UI = pg:FindFirstChild("UI"); if not UI then return end
+            local Container = UI:FindFirstChild("Container"); if not Container then return end
+            local HUD = Container:FindFirstChild("HUD"); if not HUD then return end
+            local hide = State.HideGameUI
+            for _, child in ipairs(HUD:GetChildren()) do
+                if child:IsA("GuiObject") then
+                    if child.Name == "Map" or child.Name == "Menu" or child.Name == "Topbar" then child.Visible = not hide end
+                end
+            end
+        end)
+    end
+    function _G.KZ.applyGameUI() toggleGameUI() end
+    function _G.KZ.applyChat()
+        pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, not State.HideChat) end)
+    end
+    task.spawn(function() while true do if State.HideGameUI then toggleGameUI() end task.wait(0.5) end end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- ESP MODULE
+-- ════════════════════════════════════════════════════════════════
+do
+    local State = _G.KZ.State
+    local Players = _G.KZ.Players
+    local player = _G.KZ.player
+    local RunService = _G.KZ.RunService
+    local new = _G.KZ.new
+
+    local espGui = new("ScreenGui", {Name="KZ_ESP", ResetOnSpawn=false, ZIndexBehavior=Enum.ZIndexBehavior.Sibling, IgnoreGuiInset=true, DisplayOrder=5})
+    pcall(function() espGui.Parent = _G.KZ.CoreGui end)
+    if not espGui.Parent then espGui.Parent = player:WaitForChild("PlayerGui") end
+
+    local espData = {}
+
+    local function isEspWhitelisted(plr)
+        for _, n in ipairs(State.espWhitelist) do
+            if n:lower() == plr.Name:lower() then return true end
+        end
+        return false
+    end
+    _G.KZ.isEspWhitelisted = isEspWhitelisted
+
+    local function getColorForPlayer(plr)
+        if State.espColorMode == "Static" then return State.espStaticColor end
+        if State.espColorMode == "Health" then
+            local char = plr.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.MaxHealth > 0 then
+                local ratio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                return Color3.fromRGB(255 * (1 - ratio), 255 * ratio, 60)
+            end
+            return Color3.fromRGB(255,255,255)
+        end
+        local myTeam = _G.KZ.player.Team
+        if plr.Team and myTeam then
+            if plr.Team == myTeam then return Color3.fromRGB(80, 230, 90) end
+            return Color3.fromRGB(230, 60, 60)
+        end
+        return Color3.fromRGB(255, 200, 60)
+    end
+
+    local function removeEspEntry(plr)
+        local d = espData[plr]
+        if not d then return end
+        for _, v in pairs(d) do pcall(function() v:Destroy() end) end
+        espData[plr] = nil
+    end
+    _G.KZ.removeEspEntry = removeEspEntry
+
+    local function buildEspEntry(plr)
+        removeEspEntry(plr)
+        local d = {}
+
+        d.highlight = new("Highlight", {
+            Name = "KZ_ESP_HL_"..plr.Name,
+            FillColor = Color3.fromRGB(255,255,255),
+            FillTransparency = 0.65,
+            OutlineColor = Color3.fromRGB(255,255,255),
+            OutlineTransparency = 0,
+            DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+            Parent = espGui,
+        })
+
+        d.boxHolder = new("Frame", {
+            Name = "KZ_ESP_Box_"..plr.Name,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Visible = false,
+            Parent = espGui, ZIndex = 5
+        })
+        d.boxStroke = new("UIStroke", {
+            Color = Color3.fromRGB(255,255,255),
+            Thickness = State.espBoxThickness,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = d.boxHolder,
+        })
+
+        d.name = new("TextLabel", {
+            Name = "KZ_ESP_Name_"..plr.Name,
+            BackgroundTransparency = 1,
+            Text = plr.Name,
+            TextColor3 = Color3.fromRGB(255,255,255),
+            Font = Enum.Font.GothamBold,
+            TextSize = State.espTextSize,
+            TextStrokeTransparency = 0.3,
+            TextStrokeColor3 = Color3.fromRGB(0,0,0),
+            Visible = false,
+            Parent = espGui, ZIndex = 6
+        })
+
+        d.dist = new("TextLabel", {
+            Name = "KZ_ESP_Dist_"..plr.Name,
+            BackgroundTransparency = 1,
+            Text = "0m",
+            TextColor3 = Color3.fromRGB(255,255,255),
+            Font = Enum.Font.GothamMedium,
+            TextSize = State.espTextSize - 2,
+            TextStrokeTransparency = 0.3,
+            TextStrokeColor3 = Color3.fromRGB(0,0,0),
+            Visible = false,
+            Parent = espGui, ZIndex = 6
+        })
+
+        d.hpBg = new("Frame", {
+            Name = "KZ_ESP_HpBg_"..plr.Name,
+            BackgroundColor3 = Color3.fromRGB(0,0,0),
+            BorderSizePixel = 0,
+            Visible = false,
+            Parent = espGui, ZIndex = 5
+        })
+        _G.KZ.corner(d.hpBg, 2)
+        d.hpFill = new("Frame", {
+            BackgroundColor3 = Color3.fromRGB(80,230,90),
+            BorderSizePixel = 0,
+            Size = UDim2.new(1,0,1,0),
+            Parent = d.hpBg
+        })
+        _G.KZ.corner(d.hpFill, 2)
+
+        d.tracer = new("Frame", {
+            Name = "KZ_ESP_Tracer_"..plr.Name,
+            BackgroundColor3 = Color3.fromRGB(255,255,255),
+            BorderSizePixel = 0,
+            AnchorPoint = Vector2.new(0.5, 0),
+            Visible = false,
+            Parent = espGui, ZIndex = 4
+        })
+
+        espData[plr] = d
+    end
+
+    local function updateEspEntry(plr)
+        local d = espData[plr]; if not d then return end
+        local char = plr.Character
+        local cam = workspace.CurrentCamera
+
+        local hidden = not State.espEnabled or not char or plr == player or isEspWhitelisted(plr) or not cam
+
+        if hidden then
+            d.highlight.Enabled = false; d.highlight.Adornee = nil
+            d.boxHolder.Visible = false; d.name.Visible = false; d.dist.Visible = false
+            d.hpBg.Visible = false; d.tracer.Visible = false
+            return
+        end
+
+        local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not root or not hum then
+            d.highlight.Enabled = false; d.highlight.Adornee = nil
+            d.boxHolder.Visible = false; d.name.Visible = false; d.dist.Visible = false
+            d.hpBg.Visible = false; d.tracer.Visible = false
+            return
+        end
+
+        local pos = root.Position
+        local camPos = cam.CFrame.Position
+        local distance = (pos - camPos).Magnitude
+        local color = getColorForPlayer(plr)
+
+        if State.espHighlight then
+            d.highlight.Enabled = true
+            d.highlight.Adornee = char
+            d.highlight.FillColor = color
+            d.highlight.OutlineColor = color
+            d.highlight.FillTransparency = 0.65
+            d.highlight.OutlineTransparency = 0
+        else
+            d.highlight.Enabled = false; d.highlight.Adornee = nil
+        end
+
+        if distance > State.espMaxDistance then
+            d.boxHolder.Visible = false; d.name.Visible = false; d.dist.Visible = false
+            d.hpBg.Visible = false; d.tracer.Visible = false
+            return
+        end
+
+        local head = char:FindFirstChild("Head")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if head and hrp then
+            local topPos = head.Position + Vector3.new(0, 1.2, 0)
+            local bottomPos = hrp.Position - Vector3.new(0, 3, 0)
+            local screenTop, onTop = cam:WorldToViewportPoint(topPos)
+            local screenBottom, onBottom = cam:WorldToViewportPoint(bottomPos)
+
+            if onTop and onBottom and screenTop.Z > 0 and screenBottom.Z > 0 then
+                local height = math.abs(screenTop.Y - screenBottom.Y)
+                local width = height * 0.55
+                local x = screenTop.X - width / 2
+                local y = screenTop.Y
+
+                if State.espBox then
+                    d.boxHolder.Visible = true
+                    d.boxHolder.Position = UDim2.new(0, x, 0, y)
+                    d.boxHolder.Size = UDim2.new(0, width, 0, height)
+                    d.boxStroke.Color = color
+                    d.boxStroke.Thickness = State.espBoxThickness
+                else d.boxHolder.Visible = false end
+
+                if State.espName then
+                    d.name.Visible = true
+                    d.name.Position = UDim2.new(0, x, 0, y - 18)
+                    d.name.Size = UDim2.new(0, width, 0, 16)
+                    local dn = plr.DisplayName
+                    local txt = plr.Name
+                    if dn and dn ~= "" and dn ~= plr.Name then txt = dn .. " (@" .. plr.Name .. ")" end
+                    d.name.Text = txt
+                    d.name.TextColor3 = color
+                    d.name.TextSize = State.espTextSize
+                else d.name.Visible = false end
+
+                if State.espDistance then
+                    d.dist.Visible = true
+                    d.dist.Position = UDim2.new(0, x, 0, y + height + 2)
+                    d.dist.Size = UDim2.new(0, width, 0, 14)
+                    d.dist.Text = string.format("%.0f m", distance)
+                    d.dist.TextColor3 = color
+                else d.dist.Visible = false end
+
+                if State.espHealth and hum.MaxHealth > 0 then
+                    d.hpBg.Visible = true
+                    local barH = 4
+                    d.hpBg.Position = UDim2.new(0, x, 0, y + height + 18)
+                    d.hpBg.Size = UDim2.new(0, width, 0, barH)
+                    local ratio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                    d.hpFill.Size = UDim2.new(ratio, 0, 1, 0)
+                    d.hpFill.BackgroundColor3 = Color3.fromRGB(255 * (1 - ratio), 255 * ratio, 60)
+                else d.hpBg.Visible = false end
+
+                if State.espTracer then
+                    d.tracer.Visible = true
+                    local screenMid = cam.ViewportSize.X / 2
+                    local bottomY = cam.ViewportSize.Y
+                    local targetY = screenBottom.Y
+                    local dx = screenBottom.X - screenMid
+                    local dy = targetY - bottomY
+                    local length = math.sqrt(dx*dx + dy*dy)
+                    local angle = math.deg(math.atan2(dy, dx)) - 90
+
+                    d.tracer.Position = UDim2.new(0, screenMid, 1, 0)
+                    d.tracer.Size = UDim2.new(0, 1, 0, length)
+                    d.tracer.Rotation = angle
+                    d.tracer.BackgroundColor3 = color
+                    d.tracer.BackgroundTransparency = 0.35
+                else d.tracer.Visible = false end
+            else
+                d.boxHolder.Visible = false; d.name.Visible = false; d.dist.Visible = false
+                d.hpBg.Visible = false; d.tracer.Visible = false
+            end
+        end
+    end
+
+    local function hookPlayer(plr)
+        if plr == player then return end
+        buildEspEntry(plr)
+    end
+    for _, p in ipairs(Players:GetPlayers()) do hookPlayer(p) end
+    Players.PlayerAdded:Connect(hookPlayer)
+    Players.PlayerRemoving:Connect(function(p) removeEspEntry(p) end)
+
+    RunService.RenderStepped:Connect(function()
+        for plr, _ in pairs(espData) do
+            if not plr.Parent then removeEspEntry(plr)
+            else pcall(updateEspEntry, plr) end
+        end
+    end)
+
+    function _G.KZ.rebuildEsp()
+        for plr, _ in pairs(espData) do removeEspEntry(plr) end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then buildEspEntry(p) end
+        end
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- TRIGGER BOT MODULE
+-- ════════════════════════════════════════════════════════════════
+do
+    local State = _G.KZ.State
+    local Players = _G.KZ.Players
+    local player = _G.KZ.player
+    local RunService = _G.KZ.RunService
+    local UserInputService = _G.KZ.UserInputService
+
+    local triggerActive = false
+    local lastShotTime = 0
+    local triggerConn = nil
+
+    local function isTargetAllowed(plr)
+        if plr == player then return false end
+        local list = State.triggerBotTargets
+        if not list or #list == 0 then return true end
+        for _, n in ipairs(list) do
+            if n:lower() == plr.Name:lower() then return true end
+        end
+        return false
+    end
+
+    local SHIELD_NAMES = { "shield", "ballisticshield", "riotshield", "shieldpart", "shieldmodel", "shieldhitbox", "bulletproof", "riot_shield" }
+    local function isShieldPart(inst)
+        if not inst then return false end
+        local n = inst.Name:lower()
+        for _, kw in ipairs(SHIELD_NAMES) do if n:find(kw, 1, true) then return true end end
+        local p = inst.Parent
+        if p then
+            local pn = p.Name:lower()
+            for _, kw in ipairs(SHIELD_NAMES) do if pn:find(kw, 1, true) then return true end end
+        end
+        return false
+    end
+
+    local function raycastTarget()
+        local cam = workspace.CurrentCamera
+        if not cam then return nil end
+        local origin = cam.CFrame.Position
+        local dir = cam.CFrame.LookVector * (State.triggerBotRayRange or 1000)
+
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances = { player.Character, cam }
+        params.IgnoreWater = true
+        params.RespectCanCollide = false
+
+        local result = workspace:Raycast(origin, dir, params)
+        if not result or not result.Instance then return nil end
+        local hit = result.Instance
+
+        if State.triggerBotCheckShield and isShieldPart(hit) then return nil end
+
+        local model = hit:FindFirstAncestorOfClass("Model")
+        local targetPlr = nil
+        while model do
+            local plr = Players:GetPlayerFromCharacter(model)
+            if plr then targetPlr = plr break end
+            model = model:FindFirstAncestorOfClass("Model")
+        end
+
+        if not targetPlr then return nil end
+        if not isTargetAllowed(targetPlr) then return nil end
+
+        local char = targetPlr.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return nil end
+
+        local charObj = player.Character
+        local fireOrigin = origin
+        if charObj then
+            local head = charObj:FindFirstChild("Head")
+            local tool = charObj:FindFirstChildOfClass("Tool")
+            if tool then
+                local handle = tool:FindFirstChild("Handle")
+                if handle and handle:IsA("BasePart") then fireOrigin = handle.Position
+                elseif head then fireOrigin = head.Position end
+            elseif head then fireOrigin = head.Position end
+        end
+
+        local targetPos = hit.Position
+        local wallVec = targetPos - fireOrigin
+        if wallVec.Magnitude > 0.01 then
+            local checkParams = RaycastParams.new()
+            checkParams.FilterType = Enum.RaycastFilterType.Exclude
+            checkParams.FilterDescendantsInstances = { player.Character, cam }
+            checkParams.IgnoreWater = true
+            checkParams.RespectCanCollide = false
+
+            local wallCheck = workspace:Raycast(fireOrigin, wallVec, checkParams)
+            if wallCheck and wallCheck.Instance then
+                local wallHit = wallCheck.Instance
+                if not wallHit:IsDescendantOf(char) then
+                    if State.triggerBotCheckShield and isShieldPart(wallHit) then return nil end
+                    return nil
+                end
+            end
+        end
+
+        return targetPlr
+    end
+
+    local function fireWeapon()
+        local char = player.Character; if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool then pcall(function() tool:Activate() end) end
+        pcall(function()
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+        end)
+        pcall(function() VirtualUser:ClickButton1(Vector2.new()) end)
+    end
+
+    local function onRenderStep()
+        if not triggerActive then return end
+        local now = tick()
+        if now - lastShotTime < (State.triggerBotDelay or 0.05) then return end
+        local target = raycastTarget()
+        if target then
+            fireWeapon()
+            lastShotTime = now
+        end
+    end
+
+    function _G.KZ.startTriggerBot()
+        if triggerActive then return end
+        triggerActive = true
+        triggerConn = RunService.RenderStepped:Connect(function()
+            local ok, err = pcall(onRenderStep)
+            if not ok then warn("[KZ Hub] TriggerBot error: " .. tostring(err)) end
+        end)
+    end
+
+    function _G.KZ.stopTriggerBot()
+        if not triggerActive then return end
+        triggerActive = false
+        if triggerConn then triggerConn:Disconnect(); triggerConn = nil end
+    end
+
+    function _G.KZ.clearTriggerTargets()
+        State.triggerBotTargets = {}
+    end
+
+    local function matchTriggerKey(input)
+        local k = State.triggerBotKey
+        if k == "MouseButton1" then return input.UserInputType == Enum.UserInputType.MouseButton1 end
+        if k == "MouseButton2" then return input.UserInputType == Enum.UserInputType.MouseButton2 end
+        if k == "MouseButton3" then return input.UserInputType == Enum.UserInputType.MouseButton3 end
+        return input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == k
+    end
+
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if not State.triggerBotEnabled then return end
+        if matchTriggerKey(input) then
+            if State.triggerBotHoldMode then
+                _G.KZ.startTriggerBot()
+                if _G.KZ.updateStatus then _G.KZ.updateStatus("triggerBot", "ACTIVE", Color3.fromRGB(0,255,100)) end
+            else
+                if triggerActive then
+                    _G.KZ.stopTriggerBot()
+                    if _G.KZ.updateStatus then _G.KZ.updateStatus("triggerBot", "READY", _G.KZ.C.neon) end
+                else
+                    _G.KZ.startTriggerBot()
+                    if _G.KZ.updateStatus then _G.KZ.updateStatus("triggerBot", "ACTIVE", Color3.fromRGB(0,255,100)) end
+                end
+            end
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if not State.triggerBotEnabled then return end
+        if not State.triggerBotHoldMode then return end
+        if matchTriggerKey(input) then
+            _G.KZ.stopTriggerBot()
+            if _G.KZ.updateStatus then _G.KZ.updateStatus("triggerBot", "READY", _G.KZ.C.neon) end
+        end
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- CONFIG SAVE/LOAD MODULE
+-- ════════════════════════════════════════════════════════════════
+do
+    local State = _G.KZ.State
+    local HttpService = _G.KZ.HttpService
+
+    local CONFIG_FOLDER = "KZHub_Configs"
+    local AUTO_CONFIG = "KZHub_Configs/AutoLoad.json"
+
+    local SAVEABLE_KEYS = {
+        "hitboxEnabled","hitboxX","hitboxY","hitboxZ","hitboxTargets",
+        "invisibleHitboxEnabled","invisibleHitboxX","invisibleHitboxY","invisibleHitboxZ","invisibleHitboxTargets",
+        "espEnabled","espHighlight","espBox","espName","espDistance","espHealth","espTracer",
+        "espMaxDistance","espColorMode","espBoxThickness","espTextSize","espWhitelist",
+        "triggerBotEnabled","triggerBotRayRange","triggerBotDelay","triggerBotKey","triggerBotHoldMode",
+        "triggerBotCheckShield","triggerBotTargets",
+        "FovEnabled","FovValue",
+        "flyEnabled","flySpeed","flyKey",
+        "aimbotModuleActive","aimbotWhitelist",
+        "TimeChangerEnabled","ClockHours","ClockMinutes",
+        "CurrentTheme","AccessoryColorName",
+        "KillRewardsEnabled","KillStreakEnabled","KillStreakVolume",
+        "MenuToggleKey","HideGameUI","HideChat",
+        "CustomUserName","CustomDisplayName","CustomNameEnabled",
+        "fastShotEnabled","noRecoilEnabled","infiniteAmmoEnabled",
+    }
+
+    local function colorToTable(c)
+        if typeof(c) == "Color3" then return {r = c.R, g = c.G, b = c.B, __color = true} end
+        return c
+    end
+    local function tableToColor(t)
+        if type(t) == "table" and t.__color then return Color3.new(t.r, t.g, t.b) end
+        return t
+    end
+
+    local function serializeState()
+        local data = {}
+        for _, key in ipairs(SAVEABLE_KEYS) do
+            local v = State[key]
+            data[key] = colorToTable(v)
+        end
+        data.__timestamp = os.time()
+        data.__version = "9.5"
+        return data
+    end
+
+    local function applyToState(data)
+        if type(data) ~= "table" then return false end
+        for _, key in ipairs(SAVEABLE_KEYS) do
+            if data[key] ~= nil then State[key] = tableToColor(data[key]) end
+        end
+        return true
+    end
+
+    local function reapplyLoadedSettings()
+        if State.hitboxEnabled then pcall(function() _G.KZ.enableRegularHitboxLoop() end) end
+        if State.invisibleHitboxEnabled then pcall(function() _G.KZ.enableInvisibleHitboxLoop() end) end
+        if State.espEnabled then pcall(function() _G.KZ.rebuildEsp() end) end
+        if State.CustomNameEnabled then pcall(function() _G.KZ.updateCustomName() end) end
+        pcall(function() _G.KZ.applyGameUI() end)
+        pcall(function() _G.KZ.applyChat() end)
+        if _G.KZ.updateStatus then
+            if State.triggerBotEnabled then _G.KZ.updateStatus("triggerBot", "READY", _G.KZ.C.neon) end
+            if State.flyEnabled then _G.KZ.updateStatus("fly", "OFF", _G.KZ.C.subtext) end
+        end
+    end
+
+    function _G.KZ.saveConfig(name)
+        if not writefile or not isfolder then warn("[KZ Hub] Executor не поддерживает файлы") return false end
+        name = name or State.ConfigName or "KZHub_Default"
+        pcall(function() if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end end)
+        local data = serializeState()
+        data.__name = name
+        local path = CONFIG_FOLDER .. "/" .. name .. ".json"
+        local ok = pcall(function() writefile(path, HttpService:JSONEncode(data)) end)
+        if ok then print("[KZ Hub] 💾 Config saved: " .. name); return true
+        else warn("[KZ Hub] ❌ Не сохранён config: " .. name); return false end
+    end
+
+    function _G.KZ.loadConfig(name)
+        if not readfile or not isfile then return false end
+        name = name or State.ConfigName or "KZHub_Default"
+        local path = CONFIG_FOLDER .. "/" .. name .. ".json"
+        if not isfile(path) then return false end
+        local ok, contents = pcall(function() return readfile(path) end)
+        if not ok or not contents or contents == "" then return false end
+        local ok2, data = pcall(function() return HttpService:JSONDecode(contents) end)
+        if not ok2 or type(data) ~= "table" then return false end
+        applyToState(data)
+        State.ConfigName = name
+        reapplyLoadedSettings()
+        print("[KZ Hub] 📂 Config loaded: " .. name)
+        return true
+    end
+
+    function _G.KZ.deleteConfig(name)
+        if not delfile then return false end
+        local path = CONFIG_FOLDER .. "/" .. name .. ".json"
+        local ok = pcall(function() delfile(path) end)
+        if ok then print("[KZ Hub] 🗑 Config deleted: " .. name) end
+        return ok
+    end
+
+    function _G.KZ.listConfigs()
+        local list = {}
+        if not listfiles or not isfolder then return list end
+        pcall(function()
+            if not isfolder(CONFIG_FOLDER) then return end
+            for _, file in ipairs(listfiles(CONFIG_FOLDER)) do
+                local filename = file:match("([^/\\]+)%.json$")
+                if filename then table.insert(list, filename) end
+            end
+        end)
+        table.sort(list)
+        return list
+    end
+
+    function _G.KZ.autoSaveConfig()
+        if State.AutoSaveConfig then _G.KZ.saveConfig("AutoLoad") end
+    end
+
+    task.spawn(function()
+        task.wait(2)
+        pcall(function()
+            if isfile and isfile(AUTO_CONFIG) then _G.KZ.loadConfig("AutoLoad") end
+        end)
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(15)
+            pcall(_G.KZ.autoSaveConfig)
+        end
+    end)
+
+    pcall(function()
+        game:BindToClose(function() _G.KZ.autoSaveConfig() end)
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- GUI + UI POPULATION
+-- ════════════════════════════════════════════════════════════════
+do
+    local State = _G.KZ.State
+    local C = _G.KZ.C
+    local Themes = _G.KZ.Themes
+    local player = _G.KZ.player
+    local TweenService = _G.KZ.TweenService
+    local UserInputService = _G.KZ.UserInputService
+    local CoreGui = _G.KZ.CoreGui
+    local new = _G.KZ.new
+    local corner = _G.KZ.corner
+    local AccessoryColors = _G.KZ.AccessoryColors
+
+    local gui = new("ScreenGui",{Name="KZHubNebula",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,IgnoreGuiInset=true})
+    pcall(function() gui.Parent = CoreGui end)
+    if not gui.Parent then gui.Parent = player:WaitForChild("PlayerGui") end
+
+    local ThemeRefs = { bg={}, titlebar={}, contentBg={}, tab={}, text={}, subtext={}, border={} }
+    local function reg(el, role)
+        if not ThemeRefs[role] then ThemeRefs[role] = {} end
+        table.insert(ThemeRefs[role], el)
+    end
+
+    local splash = new("Frame",{Name="Splash",Size=UDim2.new(0,440,0,0),Position=UDim2.new(0.5,-220,0.5,0),BackgroundColor3=C.bg,BorderSizePixel=0,ClipsDescendants=true,ZIndex=50,Parent=gui})
+    corner(splash, 16)
+    local splashStroke = new("UIStroke",{Color=C.accent,Thickness=2,Transparency=0.2,Parent=splash})
+    new("UIGradient",{Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C.titlebar),ColorSequenceKeypoint.new(0.5, C.tabColorHover),ColorSequenceKeypoint.new(1, C.bg)}),Rotation = 45,Parent = splash})
+    local splashGlow = new("Frame",{Size = UDim2.new(1, 0, 0, 60),Position = UDim2.new(0, 0, 0, 20),BackgroundColor3 = C.accent,BackgroundTransparency = 0.88,BorderSizePixel = 0,Parent = splash})
+    new("UIGradient",{Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1),NumberSequenceKeypoint.new(0.5, 0.6),NumberSequenceKeypoint.new(1, 1)}),Parent = splashGlow})
+
+    local splashTitle = new("TextLabel",{Size=UDim2.new(1,-40,0,32),Position=UDim2.new(0,20,0,24),BackgroundTransparency=1,Text="KZ HUB v9.5",TextColor3=C.text,Font=Enum.Font.GothamBold,TextSize=22,TextXAlignment=Enum.TextXAlignment.Center,TextTransparency=1,ZIndex=51,Parent=splash})
+    local splashAuthor = new("TextLabel",{Size=UDim2.new(1,-40,0,20),Position=UDim2.new(0,20,0,60),BackgroundTransparency=1,Text="by Demchenko11, K1s1k and Hehedio2",TextColor3=C.accent,Font=Enum.Font.GothamMedium,TextSize=13,TextXAlignment=Enum.TextXAlignment.Center,TextTransparency=1,ZIndex=51,Parent=splash})
+
+    task.spawn(function()
+        while splash.Parent do
+            local p = (math.sin(tick() * 4) + 1) * 0.5
+            pcall(function() splashStroke.Transparency = 0.2 + p * 0.4 end)
+            task.wait(0.03)
+        end
+    end)
+
+    TweenService:Create(splash, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size=UDim2.new(0,440,0,110),Position=UDim2.new(0.5,-220,0.5,-55)}):Play()
+    task.delay(0.2, function()
+        TweenService:Create(splashTitle, TweenInfo.new(0.3), {TextTransparency=0}):Play()
+        TweenService:Create(splashAuthor, TweenInfo.new(0.3), {TextTransparency=0}):Play()
+    end)
+
+    local FIXED_W, FIXED_H = 680, 460
+    local main = new("Frame",{Name="Main",Size=UDim2.new(0,FIXED_W,0,FIXED_H),Position=UDim2.new(0.5,-FIXED_W/2,0.5,-FIXED_H/2),BackgroundColor3=C.bg,BorderSizePixel=0,Visible=false,ClipsDescendants=true,Parent=gui})
+    corner(main, 16)
+
+    local mainStroke = new("UIStroke",{Color=C.accent,Thickness=1.2,Transparency=0.6,Parent=main})
+    reg(main, "bg"); reg(mainStroke, "border")
+
+    new("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,C.titlebar),ColorSequenceKeypoint.new(1,C.bg)}),Rotation=135,Parent=main})
+
+    local titleBar = new("Frame",{Size=UDim2.new(1,0,0,46),BackgroundColor3=C.titlebar,BackgroundTransparency=0.2,BorderSizePixel=0,Parent=main})
+    corner(titleBar, 16)
+    reg(titleBar, "titlebar")
+
+    local titleBarFill = new("Frame",{Size=UDim2.new(1,0,0,10),Position=UDim2.new(0,0,1,-10),BackgroundColor3=C.titlebar,BackgroundTransparency=0.2,BorderSizePixel=0,Parent=titleBar})
+    reg(titleBarFill, "titlebar")
+
+    local titleLabel = new("TextLabel",{Size=UDim2.new(0,450,1,0),Position=UDim2.new(0,20,0,0),BackgroundTransparency=1,Text="🇰🇿 KZ Hub  |  by Demchenko11, K1s1k and Hehedio2  |  v9.5",TextColor3=C.text,Font=Enum.Font.GothamBold,TextSize=13,TextXAlignment=Enum.TextXAlignment.Left,Parent=titleBar})
+    reg(titleLabel, "text")
+
+    local iconsFrame = new("Frame",{Size=UDim2.new(0,100,1,0),Position=UDim2.new(1,-100,0,0),BackgroundTransparency=1,Parent=titleBar})
+
+    local UI_SCALE = Instance.new("UIScale")
+    UI_SCALE.Scale = 1
+    UI_SCALE.Parent = main
+
+    do
+        local dragging = false
+        local dragStart, startPos
+        titleBar.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true; dragStart = input.Position; startPos = main.Position
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                local delta = input.Position - dragStart
+                main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+        end)
+    end
+
+    local animating = false
+    local basePosition = UDim2.new(0.5, -FIXED_W/2, 0.5, -FIXED_H/2)
+
+    local function animateOpen()
+        if animating then return end
+        animating = true
+        main.Visible = true
+        UI_SCALE.Scale = 0.8
+        main.BackgroundTransparency = 0.2
+        TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = basePosition}):Play()
+        TweenService:Create(UI_SCALE, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+        task.delay(0.45, function() animating = false end)
+    end
+
+    local function animateClose()
+        if animating then return end
+        animating = true
+        TweenService:Create(UI_SCALE, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Scale = 0.8}):Play()
+        task.delay(0.25, function()
+            main.Visible = false
+            gui.Enabled = false
+            animating = false
+        end)
+    end
+
+    local function toggleMenu()
+        if gui.Enabled then animateClose() else gui.Enabled = true; animateOpen() end
+    end
+
+    local function makeIcon(xOff, sym, col, cb)
+        local b = new("TextButton",{Size=UDim2.new(0,28,0,28),Position=UDim2.new(1,xOff,0.5,-14),BackgroundColor3=C.tabColor,Text=sym,TextColor3=col or C.text,Font=Enum.Font.GothamBold,TextSize=14,BorderSizePixel=0,AutoButtonColor=false,Parent=iconsFrame})
+        corner(b, 8)
+        new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.8,Parent=b})
+        b.MouseEnter:Connect(function()
+            if col == C.closeRed then
+                TweenService:Create(b, TweenInfo.new(0.18), {BackgroundColor3=C.closeRed, TextColor3=Color3.fromRGB(255,255,255)}):Play()
+            else
+                TweenService:Create(b, TweenInfo.new(0.18), {BackgroundColor3=C.tabColorHover}):Play()
+            end
+        end)
+        b.MouseLeave:Connect(function()
+            if col == C.closeRed then
+                TweenService:Create(b, TweenInfo.new(0.18), {BackgroundColor3=C.tabColor, TextColor3=C.closeRed}):Play()
+            else
+                TweenService:Create(b, TweenInfo.new(0.18), {BackgroundColor3=C.tabColor}):Play()
+            end
+        end)
+        if cb then b.MouseButton1Click:Connect(cb) end
+        reg(b, "tab"); return b
+    end
+    local iconX = makeIcon(-36, "✕", C.closeRed, function() animateClose() end)
+
+    local tabBar = new("ScrollingFrame",{Size=UDim2.new(0,150,1,-58),Position=UDim2.new(0,12,0,52),BackgroundTransparency=1,BorderSizePixel=0,ScrollBarThickness=2,ScrollBarImageColor3=C.accent,ScrollBarImageTransparency=0.5,ScrollingDirection=Enum.ScrollingDirection.Y,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ClipsDescendants=true,ElasticBehavior=Enum.ElasticBehavior.Never,Parent=main})
+    new("UIListLayout",{FillDirection=Enum.FillDirection.Vertical,Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder,Parent=tabBar})
+    new("UIPadding",{PaddingRight=UDim.new(0,4),Parent=tabBar})
+
+    local tabs={}; local tabFrames={}; local currentTab=nil
+
+    local contentHolder = new("Frame",{Size=UDim2.new(1,-184,1,-58),Position=UDim2.new(0,170,0,52),BackgroundColor3=C.contentBg,BackgroundTransparency=0.2,BorderSizePixel=0,ClipsDescendants=true,Parent=main})
+    corner(contentHolder, 12)
+    local contentStroke = new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.7,Parent=contentHolder})
+    new("UIGradient",{Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C.bg),ColorSequenceKeypoint.new(1, C.contentBg)}),Rotation = 135,Parent = contentHolder})
+    local accentTopBar = new("Frame",{Size = UDim2.new(1, 0, 0, 2),BackgroundColor3 = C.accent,BackgroundTransparency = 0.4,BorderSizePixel = 0,Parent = contentHolder})
+    corner(accentTopBar, 1)
+    new("UIGradient",{Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C.accent),ColorSequenceKeypoint.new(1, C.tabColor)}),Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2),NumberSequenceKeypoint.new(0.5, 0.7),NumberSequenceKeypoint.new(1, 0.2)}),Parent = accentTopBar})
+    reg(contentHolder, "contentBg"); reg(contentStroke, "border")
+
+    -- Status indicators
+    local statusIndicators = {}
+    local function registerStatus(key, label)
+        statusIndicators[key] = statusIndicators[key] or {}
+        table.insert(statusIndicators[key], label)
+    end
+    local function updateStatus(key, text, color)
+        if not statusIndicators[key] then return end
+        for _, lbl in ipairs(statusIndicators[key]) do
+            pcall(function()
+                if lbl and lbl.Parent then
+                    lbl.Text = text
+                    if color then TweenService:Create(lbl, TweenInfo.new(0.2), {TextColor3=color}):Play() end
+                end
+            end)
+        end
+    end
+    _G.KZ.updateStatus = updateStatus
+
+    local function createTab(name, icon, order)
+        local btn = new("TextButton",{Size=UDim2.new(1,0,0,36),BackgroundColor3=C.tabColor,BackgroundTransparency=0.4,Text="",BorderSizePixel=0,LayoutOrder=order,AutoButtonColor=false,Parent=tabBar,ZIndex=2})
+        corner(btn, 8)
+        local btnStroke = new("UIStroke",{Color=C.accent,Thickness=1,Transparency=1,Parent=btn})
+        new("UIGradient",{Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C.tabColor),ColorSequenceKeypoint.new(1, C.tabColorDark)}),Rotation = 90,Parent = btn})
+
+        local il = new("TextLabel",{Size=UDim2.new(0,20,0,20),Position=UDim2.new(0,10,0.5,-10),BackgroundTransparency=1,Text=icon,TextColor3=C.subtext,Font=Enum.Font.GothamBold,TextSize=13,Parent=btn,ZIndex=2})
+        local nl = new("TextLabel",{Size=UDim2.new(1,-38,1,0),Position=UDim2.new(0,34,0,0),BackgroundTransparency=1,Text=name,TextColor3=C.subtext,Font=Enum.Font.GothamMedium,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,Parent=btn,ZIndex=2})
+
+        local indicatorGlow = new("Frame",{Size=UDim2.new(0,6,0,22),Position=UDim2.new(0,0,0.5,-11),BackgroundColor3=C.accent,BorderSizePixel=0,BackgroundTransparency=1,Parent=btn,ZIndex=3})
+        corner(indicatorGlow, 3)
+        local indicator = new("Frame",{Size=UDim2.new(0,3,0,18),Position=UDim2.new(0,2,0.5,-9),BackgroundColor3=C.accent,BorderSizePixel=0,BackgroundTransparency=1,Parent=btn,ZIndex=3})
+        corner(indicator, 2)
+
+        task.spawn(function()
+            while btn.Parent do
+                if currentTab == name then
+                    local p = (math.sin(tick() * 3) + 1) * 0.5
+                    pcall(function()
+                        btnStroke.Transparency = 0.4 + p * 0.3
+                        indicatorGlow.BackgroundTransparency = 0.6 + p * 0.3
+                    end)
+                end
+                task.wait(0.03)
+            end
+        end)
+
+        local content = new("ScrollingFrame",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=4,ScrollBarImageColor3=C.scrollbar,ScrollBarImageTransparency=0.2,ScrollingDirection=Enum.ScrollingDirection.Y,ClipsDescendants=true,Visible=false,Parent=contentHolder,ZIndex=2})
+        new("UIListLayout",{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,Parent=content})
+        new("UIPadding",{PaddingTop=UDim.new(0,10),PaddingBottom=UDim.new(0,12),PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,12),Parent=content})
+
+        btn.MouseEnter:Connect(function()
+            if currentTab ~= name then
+                TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quart), {BackgroundTransparency=0.15}):Play()
+                TweenService:Create(btnStroke, TweenInfo.new(0.18), {Transparency=0.85}):Play()
+                TweenService:Create(il, TweenInfo.new(0.18), {TextColor3=C.accent}):Play()
+            end
+        end)
+        btn.MouseLeave:Connect(function()
+            if currentTab ~= name then
+                TweenService:Create(btn, TweenInfo.new(0.18, Enum.EasingStyle.Quart), {BackgroundTransparency=0.4}):Play()
+                TweenService:Create(btnStroke, TweenInfo.new(0.18), {Transparency=1}):Play()
+                TweenService:Create(il, TweenInfo.new(0.18), {TextColor3=C.subtext}):Play()
+            end
+        end)
+
+        btn.MouseButton1Click:Connect(function()
+            for n, f in pairs(tabFrames) do
+                f.Visible = false
+                TweenService:Create(tabs[n].Button, TweenInfo.new(0.2), {BackgroundColor3=C.tabColor, BackgroundTransparency=0.4}):Play()
+                TweenService:Create(tabs[n].Stroke, TweenInfo.new(0.2), {Transparency=1}):Play()
+                TweenService:Create(tabs[n].Indicator, TweenInfo.new(0.2), {BackgroundTransparency=1}):Play()
+                TweenService:Create(tabs[n].IndicatorGlow, TweenInfo.new(0.2), {BackgroundTransparency=1}):Play()
+                tabs[n].Icon.TextColor3 = C.subtext
+                tabs[n].Name.TextColor3 = C.subtext
+                TweenService:Create(tabs[n].Name, TweenInfo.new(0.2), {Position=UDim2.new(0,34,0,0)}):Play()
+            end
+            TweenService:Create(btn, TweenInfo.new(0.22, Enum.EasingStyle.Quart), {BackgroundColor3=C.tabColorHover, BackgroundTransparency=0}):Play()
+            TweenService:Create(btnStroke, TweenInfo.new(0.22), {Transparency=0.5}):Play()
+            TweenService:Create(indicator, TweenInfo.new(0.22), {BackgroundTransparency=0}):Play()
+            TweenService:Create(indicatorGlow, TweenInfo.new(0.22), {BackgroundTransparency=0.8}):Play()
+            il.TextColor3 = C.accent; nl.TextColor3 = C.text
+            TweenService:Create(nl, TweenInfo.new(0.22, Enum.EasingStyle.Quart), {Position=UDim2.new(0,36,0,0)}):Play()
+            content.Visible = true; content.CanvasPosition = Vector2.new(0, 0)
+            currentTab = name
+        end)
+
+        tabs[name] = {Button=btn, Stroke=btnStroke, Indicator=indicator, IndicatorGlow=indicatorGlow, Icon=il, Name=nl, Content=content}
+        tabFrames[name] = content
+        reg(btn, "tab"); reg(nl, "text"); reg(il, "subtext")
+        return content
+    end
+
+    local function addSubTabs(parentContent, tabsList)
+        local outerWrap = new("Frame", {Size=UDim2.new(1,0,0,32),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=-1000000,ClipsDescendants=false,Parent=parentContent,ZIndex=3})
+        local stripe = new("ScrollingFrame", {Size=UDim2.new(1,0,1,0),BackgroundColor3=C.tabColorDark,BackgroundTransparency=0.5,BorderSizePixel=0,ScrollBarThickness=0,ScrollBarImageTransparency=1,ScrollingDirection=Enum.ScrollingDirection.X,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.X,ElasticBehavior=Enum.ElasticBehavior.Never,ClipsDescendants=true,Parent=outerWrap,ZIndex=3})
+        corner(stripe, 8)
+
+        local inner = new("Frame", {Size=UDim2.new(0,0,1,0),AutomaticSize=Enum.AutomaticSize.X,BackgroundTransparency=1,BorderSizePixel=0,Parent=stripe,ZIndex=4})
+        new("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal,VerticalAlignment=Enum.VerticalAlignment.Center,Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder,Parent=inner})
+        new("UIPadding", {PaddingLeft=UDim.new(0,4),PaddingRight=UDim.new(0,4),Parent=inner})
+
+        local subTabHolder = new("Frame", {Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=-999999,Parent=parentContent,ZIndex=3})
+        new("UIListLayout", {Padding=UDim.new(0,0),SortOrder=Enum.SortOrder.LayoutOrder,Parent=subTabHolder})
+
+        local subContents = {}; local subButtons = {}
+        local function selectSub(name)
+            for n, c in pairs(subContents) do c.Visible = (n == name) end
+            for n, b in pairs(subButtons) do
+                if n == name then
+                    TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3=C.accent, TextColor3=C.bg}):Play()
+                else
+                    TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3=C.tabColor, TextColor3=C.text}):Play()
+                end
+            end
+        end
+
+        for i, cfg in ipairs(tabsList) do
+            local btn = new("TextButton", {Size=UDim2.new(0,0,0,24),AutomaticSize=Enum.AutomaticSize.X,BackgroundColor3=C.tabColor,BackgroundTransparency=0.2,Text=cfg.name,TextColor3=C.text,Font=Enum.Font.GothamBold,TextSize=10,BorderSizePixel=0,AutoButtonColor=false,LayoutOrder=i,Parent=inner,ZIndex=4})
+            corner(btn, 6)
+            new("UIPadding", {PaddingLeft=UDim.new(0,10),PaddingRight=UDim.new(0,10),Parent=btn})
+            btn.MouseButton1Click:Connect(function() selectSub(cfg.name) end)
+            subButtons[cfg.name] = btn
+            reg(btn, "tab"); reg(btn, "text")
+
+            local content = new("Frame", {Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=i,Visible=false,Parent=subTabHolder,ZIndex=3})
+            new("UIListLayout", {Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder,Parent=content})
+            new("UIPadding", {PaddingTop=UDim.new(0,6),PaddingBottom=UDim.new(0,8),Parent=content})
+            subContents[cfg.name] = content
+        end
+        if #tabsList > 0 then selectSub(tabsList[1].name) end
+        return subContents
+    end
+
+    local sectionOrder, rowOrder = 0, 0
+    local function addSection(parent, title)
+        sectionOrder = sectionOrder + 1
+        local secFrame = new("Frame",{Size=UDim2.new(1,0,0,22),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=sectionOrder*100,Parent=parent,ZIndex=3})
+
+        local bar = new("Frame",{Size = UDim2.new(0, 3, 0, 14),Position = UDim2.new(0, 0, 0.5, -7),BackgroundColor3 = C.accent,BorderSizePixel = 0,Parent = secFrame, ZIndex = 3})
+        corner(bar, 2)
+
+        local lbl = new("TextLabel",{Size = UDim2.new(1, -10, 1, 0),Position = UDim2.new(0, 10, 0, 0),BackgroundTransparency = 1,Text = string.upper(title),TextColor3 = C.accent,Font = Enum.Font.GothamBold,TextSize = 10,TextXAlignment = Enum.TextXAlignment.Left,Parent = secFrame, ZIndex = 3})
+        reg(lbl, "subtext")
+        return secFrame
+    end
+
+    local function addRow(parent, title, subtext)
+        rowOrder = rowOrder + 1
+        local r = new("Frame",{Size=UDim2.new(1,0,0,subtext and 48 or 38),BackgroundColor3=C.tabColor,BackgroundTransparency=0.3,BorderSizePixel=0,LayoutOrder=rowOrder,Parent=parent,ZIndex=3})
+        corner(r, 8)
+        local stroke = new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.92,Parent=r})
+
+        local tl = new("TextLabel",{Size=UDim2.new(0.6,0,0,18),Position=UDim2.new(0,12,0,subtext and 6 or 10),BackgroundTransparency=1,Text=title,TextColor3=C.text,Font=Enum.Font.GothamMedium,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,Parent=r,ZIndex=3})
+        reg(tl, "text")
+        if subtext then
+            local sl = new("TextLabel",{Size=UDim2.new(0.6,0,0,14),Position=UDim2.new(0,12,0,26),BackgroundTransparency=1,Text=subtext,TextColor3=C.subtext,Font=Enum.Font.Gotham,TextSize=9,TextXAlignment=Enum.TextXAlignment.Left,Parent=r,ZIndex=3})
+            reg(sl, "subtext")
+        end
+
+        r.MouseEnter:Connect(function()
+            TweenService:Create(r, TweenInfo.new(0.15), {BackgroundTransparency=0.1}):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency=0.75, Color=C.accent}):Play()
+        end)
+        r.MouseLeave:Connect(function()
+            TweenService:Create(r, TweenInfo.new(0.15), {BackgroundTransparency=0.3}):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency=0.92}):Play()
+        end)
+
+        reg(r, "tab"); return r
+    end
+
+    local function addToggle(parent, title, subtext, default, callback, statusKey)
+        local state = default or false
+        local r = addRow(parent, title, subtext)
+        local track = new("Frame", {Size=UDim2.new(0,36,0,18),Position=UDim2.new(1,-48,0.5,-9),BackgroundColor3=state and C.neon or C.toggleOff,BorderSizePixel=0,Parent=r,ZIndex=3})
+        corner(track, 10)
+        local knob = new("Frame", {Size=UDim2.new(0,14,0,14),Position=state and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0,Parent=track,ZIndex=3})
+        corner(knob, 8)
+
+        local statusLbl = nil
+        if statusKey then
+            statusLbl = new("TextLabel", {
+                Size = UDim2.new(0, 60, 0, 14),
+                Position = UDim2.new(1, -112, 0.5, -7),
+                BackgroundTransparency = 1,
+                Text = state and "ON" or "OFF",
+                TextColor3 = state and C.neon or C.subtext,
+                Font = Enum.Font.GothamBold,
+                TextSize = 10,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                Parent = r, ZIndex = 3
+            })
+            registerStatus(statusKey, statusLbl)
+        end
+
+        local btn = new("TextButton", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", Parent=r, ZIndex=4 })
+        btn.MouseButton1Click:Connect(function()
+            state = not state
+            TweenService:Create(track, TweenInfo.new(0.2), {BackgroundColor3=state and C.neon or C.toggleOff}):Play()
+            TweenService:Create(knob, TweenInfo.new(0.2), {Position=state and UDim2.new(1,-16,0.5,-7) or UDim2.new(0,2,0.5,-7)}):Play()
+            if statusLbl then
+                statusLbl.Text = state and "ON" or "OFF"
+                TweenService:Create(statusLbl, TweenInfo.new(0.2), {TextColor3 = state and C.neon or C.subtext}):Play()
+            end
+            if callback then pcall(callback, state) end
+        end)
+        return r
+    end
+
+    local function addButton(parent, title, subtext, callback, disabled)
+        local r = addRow(parent, title, subtext)
+        if not disabled then
+            local btn = new("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text="",Parent=r,ZIndex=4})
+            btn.MouseButton1Click:Connect(function() if callback then pcall(callback) end end)
+        end
+        return r
+    end
+
+    local function addKeybind(parent, title, defaultKey, callback)
+        local r = addRow(parent, title)
+        local key = defaultKey or "Z"
+        local box = new("TextButton",{Size=UDim2.new(0,70,0,22),Position=UDim2.new(1,-82,0.5,-11),BackgroundColor3=C.tabColorDark,Text=key,TextColor3=C.text,Font=Enum.Font.GothamBold,TextSize=10,BorderSizePixel=0,AutoButtonColor=false,Parent=r,ZIndex=4})
+        corner(box, 6)
+        new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.8,Parent=box})
+        reg(box, "tab"); reg(box, "text")
+
+        box.MouseButton1Click:Connect(function()
+            box.Text = "..."
+            local conn
+            conn = UserInputService.InputBegan:Connect(function(input, gp)
+                if gp then return end
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    key = input.KeyCode.Name; box.Text = key; conn:Disconnect()
+                    if callback then pcall(callback, key) end
+                elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    key = "MouseButton1"; box.Text = key; conn:Disconnect()
+                    if callback then pcall(callback, key) end
+                elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+                    key = "MouseButton2"; box.Text = key; conn:Disconnect()
+                    if callback then pcall(callback, key) end
+                elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
+                    key = "MouseButton3"; box.Text = key; conn:Disconnect()
+                    if callback then pcall(callback, key) end
+                end
+            end)
+        end)
+        return r
+    end
+
+    local function addInput(parent, title, placeholder, default, callback)
+        local r = addRow(parent, title)
+        local box = new("TextBox",{Size=UDim2.new(0,110,0,22),Position=UDim2.new(1,-122,0.5,-11),BackgroundColor3=C.tabColorDark,Text=tostring(default or ""),PlaceholderText=placeholder or "",PlaceholderColor3=C.subtext,TextColor3=C.text,Font=Enum.Font.Gotham,TextSize=11,ClearTextOnFocus=false,BorderSizePixel=0,Parent=r,ZIndex=4})
+        corner(box, 6)
+        new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.8,Parent=box})
+        reg(box, "tab"); reg(box, "text")
+        box.FocusLost:Connect(function(enter) if enter and callback then callback(box.Text) end end)
+        return r
+    end
+
+    local function addSlider(parent, title, min, max, default, isFloat, callback)
+        local r = addRow(parent, title, nil); r.Size = UDim2.new(1,0,0,50)
+        local value = default or min
+        local display = new("TextLabel",{Size=UDim2.new(0,50,0,18),Position=UDim2.new(1,-62,0,6),BackgroundTransparency=1,Text=isFloat and string.format("%.2f", value) or tostring(math.floor(value)),TextColor3=C.neon,Font=Enum.Font.GothamBold,TextSize=11,TextXAlignment=Enum.TextXAlignment.Right,Parent=r,ZIndex=3})
+
+        local bar = new("Frame",{Size=UDim2.new(1,-24,0,6),Position=UDim2.new(0,12,0,32),BackgroundColor3=C.tabColorDark,BorderSizePixel=0,Parent=r,ZIndex=3})
+        corner(bar, 3)
+        local fill = new("Frame",{Size=UDim2.new((value-min)/(max-min),0,1,0),BackgroundColor3=C.neon,BorderSizePixel=0,Parent=bar,ZIndex=3})
+        corner(fill, 3)
+
+        local knob = new("Frame",{Size=UDim2.new(0,12,0,12),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new((value-min)/(max-min),0,0.5,0),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0,Parent=bar,ZIndex=4})
+        corner(knob, 6)
+
+        local btn = new("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,Text="",Parent=bar,ZIndex=5})
+        local dragging = false
+        local function update(x)
+            local rel = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+            local v = min + (max - min) * rel
+            if isFloat then v = math.floor(v * 100) / 100 else v = math.floor(v) end
+            fill.Size = UDim2.new(rel, 0, 1, 0)
+            knob.Position = UDim2.new(rel, 0, 0.5, 0)
+            display.Text = isFloat and string.format("%.2f", v) or tostring(v)
+            if callback then pcall(callback, v) end
+        end
+        btn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; update(input.Position.X) end end)
+        UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update(input.Position.X) end end)
+        UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+        return r
+    end
+
+    local function addColorWheel(parent, title, initialColor, callback)
+        local r = addRow(parent, title, nil); r.Size = UDim2.new(1,0,0,165)
+        local currentHue, currentSat, currentVal = 0, 1, 1
+        if initialColor then currentHue, currentSat, currentVal = Color3.toHSV(initialColor) end
+        local previewBox = new("Frame", {Size=UDim2.new(0,32,0,18),Position=UDim2.new(1,-44,0,8),BackgroundColor3=initialColor or Color3.fromRGB(255,255,255),BorderSizePixel=0,Parent=r,ZIndex=4})
+        corner(previewBox, 4)
+        new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.5,Parent=previewBox})
+
+        local wheelSize = 110
+        local wheelFrame = new("Frame", {Size=UDim2.new(0,wheelSize,0,wheelSize),Position=UDim2.new(0,12,0,38),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0,Parent=r,ZIndex=4})
+        corner(wheelFrame, wheelSize/2)
+        local pixelSize = 3
+        local pixels = math.floor(wheelSize / pixelSize)
+        local wheelRadius = (pixels - 1) / 2
+        for y = 0, pixels - 1 do
+            for x = 0, pixels - 1 do
+                local dx = x - wheelRadius; local dy = y - wheelRadius
+                local dist = math.sqrt(dx*dx + dy*dy)
+                if dist <= wheelRadius then
+                    local sat = math.clamp(dist / wheelRadius, 0, 1)
+                    local angle = math.atan2(dy, dx)
+                    local hue = angle / (math.pi * 2)
+                    if hue < 0 then hue = hue + 1 end
+                    new("Frame", {Size=UDim2.new(0,pixelSize,0,pixelSize),Position=UDim2.new(0,x*pixelSize,0,y*pixelSize),BackgroundColor3=Color3.fromHSV(hue, sat, 1),BorderSizePixel=0,Parent=wheelFrame,ZIndex=4})
+                end
+            end
+        end
+        local picker = new("Frame", {Size=UDim2.new(0,10,0,10),AnchorPoint=Vector2.new(0.5,0.5),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0,Parent=wheelFrame,ZIndex=6})
+        corner(picker, 5)
+        new("UIStroke", {Color=Color3.fromRGB(0,0,0), Thickness=1.5, Parent=picker})
+        local initAngle = currentHue * math.pi * 2
+        local initDist = currentSat * (wheelSize/2)
+        picker.Position = UDim2.new(0.5, math.cos(initAngle)*initDist, 0.5, math.sin(initAngle)*initDist)
+
+        local valBarHeight = 110
+        local valBarFrame = new("Frame", {Size=UDim2.new(0,16,0,valBarHeight),Position=UDim2.new(0,wheelSize+28,0,38),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0,Parent=r,ZIndex=4})
+        corner(valBarFrame, 4)
+        local valGradient = new("UIGradient", {Rotation=90,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromHSV(currentHue,currentSat,1)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))}),Parent=valBarFrame})
+        local valSlider = new("Frame", {Size=UDim2.new(1,4,0,6),AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.new(0.5,0,1-currentVal,0),BackgroundColor3=Color3.fromRGB(255,255,255),BorderSizePixel=0,Parent=valBarFrame,ZIndex=6})
+        corner(valSlider, 3)
+        new("UIStroke", {Color=Color3.fromRGB(0,0,0), Thickness=1, Parent=valSlider})
+
+        local function notifyColor()
+            local color = Color3.fromHSV(currentHue, currentSat, currentVal)
+            previewBox.BackgroundColor3 = color
+            valGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromHSV(currentHue,currentSat,1)),ColorSequenceKeypoint.new(1,Color3.fromRGB(0,0,0))})
+            if callback then callback(color) end
+        end
+        local wheelBtn = new("TextButton", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", Parent=wheelFrame, ZIndex=7})
+        local wheelDragging = false
+        local function updateWheel(px, py)
+            local relX = px - wheelFrame.AbsolutePosition.X - wheelSize/2
+            local relY = py - wheelFrame.AbsolutePosition.Y - wheelSize/2
+            local dist = math.sqrt(relX*relX + relY*relY)
+            local maxDist = wheelSize/2
+            local radius = math.min(dist/maxDist, 1)
+            local angle = math.atan2(relY, relX)
+            local hue = angle / (math.pi*2)
+            if hue < 0 then hue = hue + 1 end
+            currentHue = hue; currentSat = radius
+            picker.Position = UDim2.new(0.5, math.cos(angle)*(radius*maxDist), 0.5, math.sin(angle)*(radius*maxDist))
+            notifyColor()
+        end
+        wheelBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then wheelDragging = true updateWheel(input.Position.X, input.Position.Y) end end)
+        local valBtn = new("TextButton", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", Parent=valBarFrame, ZIndex=7})
+        local valDragging = false
+        local function updateVal(py)
+            local relY = math.clamp((py - valBarFrame.AbsolutePosition.Y)/valBarHeight, 0, 1)
+            currentVal = 1 - relY
+            valSlider.Position = UDim2.new(0.5, 0, relY, 0)
+            notifyColor()
+        end
+        valBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then valDragging = true updateVal(input.Position.Y) end end)
+        UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                if wheelDragging then updateWheel(input.Position.X, input.Position.Y) end
+                if valDragging then updateVal(input.Position.Y) end
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then wheelDragging = false; valDragging = false end
+        end)
+        return r
+    end
+
+    local function addDropdown(parent, title, getValues, getCurrent, setValue, colorMap)
+        local r = addRow(parent, title)
+        local current = getCurrent()
+        local box = new("TextButton", {Size=UDim2.new(0,120,0,22),Position=UDim2.new(1,-132,0.5,-11),BackgroundColor3=C.tabColorDark,Text=tostring(current or "None") .. " ▼",TextColor3=C.text,Font=Enum.Font.Gotham,TextSize=11,BorderSizePixel=0,TextTruncate=Enum.TextTruncate.AtEnd,AutoButtonColor=false,Parent=r,ZIndex=4})
+        corner(box, 6)
+        new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.8,Parent=box})
+        reg(box, "tab"); reg(box, "text")
+
+        local panel = nil; local closeConn = nil
+        local function closePanel()
+            if panel then panel:Destroy(); panel = nil end
+            if closeConn then closeConn:Disconnect(); closeConn = nil end
+        end
+        box.MouseButton1Click:Connect(function()
+            if panel then closePanel(); return end
+            panel = new("ScrollingFrame", {Size=UDim2.new(0,220,0,180),BackgroundColor3=C.dropdown,BorderSizePixel=0,CanvasSize=UDim2.new(0,0,0,0),AutomaticCanvasSize=Enum.AutomaticSize.Y,ScrollBarThickness=3,ScrollBarImageColor3=C.scrollbar,ZIndex=20,Parent=contentHolder})
+            corner(panel, 8)
+            new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.6,Parent=panel})
+            new("UIListLayout", {Padding=UDim.new(0,4), SortOrder=Enum.SortOrder.LayoutOrder, Parent=panel})
+            new("UIPadding", {PaddingTop=UDim.new(0,6), PaddingBottom=UDim.new(0,6), PaddingLeft=UDim.new(0,4), PaddingRight=UDim.new(0,4), Parent=panel})
+
+            for i, name in ipairs(getValues()) do
+                local itemColor = (colorMap and colorMap[name]) or C.tabColor
+                local item = new("TextButton", {Size=UDim2.new(1,-8,0,22),BackgroundColor3=itemColor,BackgroundTransparency=0.2,Text="  "..name,TextColor3=C.text,Font=Enum.Font.GothamBold,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,BorderSizePixel=0,LayoutOrder=i,Parent=panel,ZIndex=21})
+                corner(item, 5)
+                item.MouseButton1Click:Connect(function() setValue(name); box.Text = name .. " ▼"; closePanel() end)
+            end
+            task.delay(0.05, function()
+                closeConn = UserInputService.InputBegan:Connect(function(input, gp)
+                    if gp then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then closePanel() end
+                end)
+            end)
+        end)
+        return r
+    end
+
+    local function addPlayerPicker(parent, title, subtext, getTargetsFn, refreshFn)
+        local r = addRow(parent, title, subtext)
+        r.Size = UDim2.new(1,0,0,52)
+        local summary = new("TextLabel", {
+            Size = UDim2.new(0.6,0,0,14),
+            Position = UDim2.new(0,12,0,32),
+            BackgroundTransparency = 1,
+            Text = "Выбрано: никого",
+            TextColor3 = C.neon,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            Parent = r, ZIndex = 3
+        })
+        reg(summary, "text")
+        local function updateSummary()
+            local list = getTargetsFn()
+            if #list == 0 then
+                summary.Text = "Выбрано: никого"
+            else
+                summary.Text = "Выбрано (".. #list .."): " .. table.concat(list, ", ")
+            end
+        end
+        _G.KZ["_updateSummary_" .. title] = updateSummary
+
+        local openBtn = new("TextButton", {
+            Size = UDim2.new(0,90,0,22),
+            Position = UDim2.new(1,-102,0.5,-11),
+            BackgroundColor3 = C.tabColorDark,
+            Text = "👥 Игроки",
+            TextColor3 = C.text,
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+            Parent = r, ZIndex = 4
+        })
+        corner(openBtn, 6)
+        new("UIStroke",{Color=C.accent,Thickness=1,Transparency=0.8,Parent=openBtn})
+        reg(openBtn, "tab"); reg(openBtn, "text")
+
+        local panel = nil
+        local closeConn = nil
+        local function closePanel()
+            if panel then panel:Destroy(); panel = nil end
+            if closeConn then closeConn:Disconnect(); closeConn = nil end
+        end
+        local function isInside(guiEl, pos)
+            if not guiEl then return false end
+            local ap = guiEl.AbsolutePosition
+            local as = guiEl.AbsoluteSize
+            return pos.X >= ap.X and pos.X <= ap.X + as.X and pos.Y >= ap.Y and pos.Y <= ap.Y + as.Y
+        end
+
+        openBtn.MouseButton1Click:Connect(function()
+            if panel then closePanel(); return end
+            panel = new("ScrollingFrame", {
+                Size = UDim2.new(0,280,0,280),
+                Position = UDim2.new(0.5,-140,0.5,-140),
+                BackgroundColor3 = C.dropdown,
+                BorderSizePixel = 0,
+                CanvasSize = UDim2.new(0,0,0,0),
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                ScrollBarThickness = 3,
+                ScrollBarImageColor3 = C.scrollbar,
+                ZIndex = 50,
+                Parent = gui
+            })
+            corner(panel, 10)
+            new("UIStroke", {Color = C.accent, Thickness = 1.2, Parent = panel})
+            new("UIListLayout", {Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = panel})
+            new("UIPadding", {PaddingTop = UDim.new(0,8), PaddingBottom = UDim.new(0,8), PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), Parent = panel})
+
+            new("TextLabel", {Size = UDim2.new(1,0,0,18),BackgroundTransparency = 1,Text = "Выбор игроков",TextColor3 = C.neon,Font = Enum.Font.GothamBold,TextSize = 11,LayoutOrder = 0,Parent = panel, ZIndex = 51})
+
+            local controls = new("Frame", {Size = UDim2.new(1,0,0,24),BackgroundTransparency = 1,LayoutOrder = 1,Parent = panel, ZIndex = 51})
+            new("UIListLayout", {FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,4), SortOrder=Enum.SortOrder.LayoutOrder, Parent=controls})
+
+            local listHolder = new("Frame", {Size = UDim2.new(1,0,0,0),AutomaticSize = Enum.AutomaticSize.Y,BackgroundTransparency = 1,LayoutOrder = 2,Parent = panel, ZIndex = 51})
+            new("UIListLayout", {Padding=UDim.new(0,4), SortOrder=Enum.SortOrder.LayoutOrder, Parent=listHolder})
+
+            local function rebuild()
+                for _, c in ipairs(listHolder:GetChildren()) do
+                    if c:IsA("TextButton") then c:Destroy() end
+                end
+                local list = getTargetsFn()
+                local listSet = {}
+                for _, n in ipairs(list) do listSet[n:lower()] = true end
+                local order = 1
+                for _, plr in ipairs(_G.KZ.Players:GetPlayers()) do
+                    if plr ~= player then
+                        local isSel = listSet[plr.Name:lower()] == true
+                        local item = new("TextButton", {
+                            Size = UDim2.new(1,0,0,24),
+                            BackgroundColor3 = isSel and C.accent or C.tabColor,
+                            BackgroundTransparency = isSel and 0 or 0.3,
+                            Text = "  ".. (isSel and "✓ " or "  ") .. plr.Name,
+                            TextColor3 = isSel and C.bg or C.text,
+                            Font = Enum.Font.GothamBold,
+                            TextSize = 11,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            BorderSizePixel = 0,
+                            LayoutOrder = order,
+                            Parent = listHolder, ZIndex = 52
+                        })
+                        corner(item, 6)
+                        item.MouseButton1Click:Connect(function()
+                            local lst = getTargetsFn()
+                            local found = false
+                            for i = #lst, 1, -1 do
+                                if lst[i]:lower() == plr.Name:lower() then
+                                    table.remove(lst, i)
+                                    found = true
+                                end
+                            end
+                            if not found then table.insert(lst, plr.Name) end
+                            updateSummary()
+                            if refreshFn then pcall(refreshFn) end
+                            rebuild()
+                        end)
+                        order = order + 1
+                    end
+                end
+            end
+
+            local btnAll = new("TextButton", {Size = UDim2.new(0,80,1,0),BackgroundColor3 = C.tabColor,Text = "✓ Все",TextColor3 = C.text,Font = Enum.Font.GothamBold,TextSize = 10,BorderSizePixel = 0,AutoButtonColor = false,LayoutOrder = 1,Parent = controls, ZIndex = 52})
+            corner(btnAll, 5)
+            btnAll.MouseButton1Click:Connect(function()
+                local lst = getTargetsFn()
+                for _, plr in ipairs(_G.KZ.Players:GetPlayers()) do
+                    if plr ~= player then
+                        local has = false
+                        for _, n in ipairs(lst) do if n:lower() == plr.Name:lower() then has = true break end end
+                        if not has then table.insert(lst, plr.Name) end
+                    end
+                end
+                updateSummary()
+                if refreshFn then pcall(refreshFn) end
+                rebuild()
+            end)
+
+            local btnNone = new("TextButton", {Size = UDim2.new(0,80,1,0),BackgroundColor3 = C.tabColor,Text = "✕ Никого",TextColor3 = C.text,Font = Enum.Font.GothamBold,TextSize = 10,BorderSizePixel = 0,AutoButtonColor = false,LayoutOrder = 2,Parent = controls, ZIndex = 52})
+            corner(btnNone, 5)
+            btnNone.MouseButton1Click:Connect(function()
+                local lst = getTargetsFn()
+                for i = #lst, 1, -1 do table.remove(lst, i) end
+                updateSummary()
+                if refreshFn then pcall(refreshFn) end
+                rebuild()
+            end)
+
+            local btnRefresh = new("TextButton", {Size = UDim2.new(0,30,1,0),BackgroundColor3 = C.tabColor,Text = "🔄",TextColor3 = C.text,Font = Enum.Font.GothamBold,TextSize = 10,BorderSizePixel = 0,AutoButtonColor = false,LayoutOrder = 3,Parent = controls, ZIndex = 52})
+            corner(btnRefresh, 5)
+            btnRefresh.MouseButton1Click:Connect(function() rebuild() end)
+
+            rebuild()
+
+            task.delay(0.05, function()
+                closeConn = UserInputService.InputBegan:Connect(function(input, gp)
+                    if gp then return end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        if not isInside(panel, input.Position) then closePanel() end
+                    end
+                end)
+            end)
+        end)
+
+        updateSummary()
+        return r
+    end
+
+    local function applyTheme(themeName)
+        local t = Themes[themeName]; if not t then return end
+        State.CurrentTheme = themeName
+        for k, v in pairs(t) do C[k] = v end
+        for _, el in ipairs(ThemeRefs.bg) do pcall(function() el.BackgroundColor3 = t.bg end) end
+        for _, el in ipairs(ThemeRefs.titlebar) do pcall(function() el.BackgroundColor3 = t.titlebar end) end
+        for _, el in ipairs(ThemeRefs.contentBg) do pcall(function() el.BackgroundColor3 = t.contentBg end) end
+        for _, el in ipairs(ThemeRefs.text) do pcall(function() el.TextColor3 = t.text end) end
+        for _, el in ipairs(ThemeRefs.subtext) do pcall(function() el.TextColor3 = t.subtext end) end
+        for _, el in ipairs(ThemeRefs.border or {}) do pcall(function() el.Color = t.accent end) end
+    end
+
+    local hitboxTab = createTab("Hitbox", "🎯", 1)
+    local combatTab = createTab("Combat", "⚔", 2)
+    local gunTab = createTab("Guns", "🔫", 3)
+    local skinsTab = createTab("Skins", "💎", 4)
+    local aimbotTab = createTab("Aimbot", "🎯", 5)
+    local visualTab = createTab("Visuals", "🎨", 6)
+    local flyTab = createTab("Fly", "🪂", 7)
+    local otherTab = createTab("Others", "⚡", 8)
+    local uiTab = createTab("UI", "⚙", 9)
+    local configTab = createTab("Config", "💾", 10)
+
+    local hitboxSubs = addSubTabs(hitboxTab, {{name = "Hitbox"}, {name = "Невидимый"}})
+    local combatSubs = addSubTabs(combatTab, {{name = "Trigger Bot"}})
+    local skinsSubs = addSubTabs(skinsTab, {{name = "Skin"}, {name = "Пресеты"}})
+    local aimbotSubs = addSubTabs(aimbotTab, {{name = "Аимбот"}, {name = "Whitelist"}})
+    local visualSubs = addSubTabs(visualTab, {
+        {name = "Ник"}, {name = "Аксессуары"}, {name = "По ID"},
+        {name = "Одежда"}, {name = "Время"}, {name = "Звуки"},
+        {name = "ESP"},
+    })
+    local otherSubs = addSubTabs(otherTab, {{name = "Скрипты"}, {name = "ТП"}, {name = "FOV"}})
+    local uiSubs = addSubTabs(uiTab, {{name = "Меню"}, {name = "Игровое UI"}, {name = "Темы"}})
+
+    -- HITBOX
+    addSection(hitboxSubs["Hitbox"], "Обычный Hitbox")
+    addPlayerPicker(hitboxSubs["Hitbox"], "🎯 Цели хитбокса", "Клик на игрока — накладывать", function() return State.hitboxTargets end, function() _G.KZ.refreshRegularHitbox() end)
+    addToggle(hitboxSubs["Hitbox"], "Enable Hitbox", "Только на выбранных", false, function(v)
+        State.hitboxEnabled = v
+        if v then _G.KZ.enableRegularHitboxLoop() else _G.KZ.disableRegularHitboxLoop() end
+    end, "hitbox")
+    addSlider(hitboxSubs["Hitbox"], "HitboxX", 0.5, 10, 4.3, true, function(v) State.hitboxX = v end)
+    addSlider(hitboxSubs["Hitbox"], "HitboxY", 0.5, 10, 4.3, true, function(v) State.hitboxY = v end)
+    addSlider(hitboxSubs["Hitbox"], "HitboxZ", 0.5, 10, 1.0, true, function(v) State.hitboxZ = v end)
+
+    addSection(hitboxSubs["Невидимый"], "Invisible Hitbox")
+    addPlayerPicker(hitboxSubs["Невидимый"], "🎯 Цели инвиз-хитбокса", "Клик на игрока — накладывать", function() return State.invisibleHitboxTargets end, function() _G.KZ.refreshInvisibleHitbox() end)
+    addToggle(hitboxSubs["Невидимый"], "Enable Invisible Hitbox", "Только на выбранных", false, function(v)
+        State.invisibleHitboxEnabled = v
+        if v then _G.KZ.enableInvisibleHitboxLoop() else _G.KZ.disableInvisibleHitboxLoop() end
+    end, "invisibleHitbox")
+    addSlider(hitboxSubs["Невидимый"], "HitboxX", 0.5, 10, 4.3, true, function(v) State.invisibleHitboxX = v end)
+    addSlider(hitboxSubs["Невидимый"], "HitboxY", 0.5, 10, 4.3, true, function(v) State.invisibleHitboxY = v end)
+    addSlider(hitboxSubs["Невидимый"], "HitboxZ", 0.5, 10, 1.0, true, function(v) State.invisibleHitboxZ = v end)
+
+    -- COMBAT
+    addSection(combatSubs["Trigger Bot"], "Trigger Bot")
+    addToggle(combatSubs["Trigger Bot"], "Enable Trigger Bot", "Авто-выстрел при наведении на игрока", false, function(v)
+        State.triggerBotEnabled = v
+        if not v then _G.KZ.stopTriggerBot() end
+    end, "triggerBot")
+    addToggle(combatSubs["Trigger Bot"], "Hold Mode", "Вкл — держать клавишу", true, function(v) State.triggerBotHoldMode = v end)
+    addToggle(combatSubs["Trigger Bot"], "Shield Check", "Не стрелять в щит", true, function(v) State.triggerBotCheckShield = v end)
+    addSlider(combatSubs["Trigger Bot"], "Ray Range", 100, 5000, 1000, false, function(v) State.triggerBotRayRange = v end)
+    addSlider(combatSubs["Trigger Bot"], "Задержка (сек)", 0, 1, 0.05, true, function(v) State.triggerBotDelay = v end)
+    addKeybind(combatSubs["Trigger Bot"], "Клавиша активации", "MouseButton2", function(k) State.triggerBotKey = k end)
+
+    addPlayerPicker(combatSubs["Trigger Bot"], "🎯 Цели триггера", "Пусто = все. Заполнено = только эти", function() return State.triggerBotTargets end, function() end)
+    addButton(combatSubs["Trigger Bot"], "🗑 Очистить цели (стрелять по всем)", nil, function()
+        _G.KZ.clearTriggerTargets()
+        local upd = _G.KZ["_updateSummary_🎯 Цели триггера"]
+        if upd then upd() end
+    end)
+
+    -- GUNS
+    addSection(gunTab, "Gun Settings")
+    addToggle(gunTab, "Fast Shot", "Ускоряет анимацию", false, function(v) _G.KZ.toggleFastShot(v) end)
+    addToggle(gunTab, "No Recoil", "Убирает отдачу AWP / MSR / M40", false, function(v) if v then _G.KZ.enableNoRecoil() else _G.KZ.disableNoRecoil() end end)
+    addToggle(gunTab, "Infinity Ammo", "Бесконечные патроны", false, function(v) if v then _G.KZ.enableInfiniteAmmo() else _G.KZ.disableInfiniteAmmo() end end)
+
+    -- SKINS
+    addSection(skinsSubs["Skin"], "Skin Changer")
+    addInput(skinsSubs["Skin"], "Оружие", "AWP", "None", function(v) State.SC_Weapon = v end)
+    addInput(skinsSubs["Skin"], "Camo 1", "Введите название", State.SC_Camo1, function(v) State.SC_Camo1 = v end)
+    addDropdown(skinsSubs["Skin"], "Primary Camo", _G.KZ.scGetSkins, function() return State.SC_Camo1 end, function(v) State.SC_Camo1 = v end)
+    addInput(skinsSubs["Skin"], "Camo 2", "Введите название", State.SC_Camo2, function(v) State.SC_Camo2 = v end)
+    addDropdown(skinsSubs["Skin"], "Secondary Camo", _G.KZ.scGetSkins, function() return State.SC_Camo2 end, function(v) State.SC_Camo2 = v end)
+    addToggle(skinsSubs["Skin"], "Animate Camo 1", nil, true, function(v) State.SC_Anim1 = v end)
+    addToggle(skinsSubs["Skin"], "Animate Camo 2", nil, true, function(v) State.SC_Anim2 = v end)
+    addToggle(skinsSubs["Skin"], "Use Custom Color 1", nil, false, function(v) State.SC_UseColor1 = v end)
+    addColorWheel(skinsSubs["Skin"], "Camo 1 Color", Color3.fromRGB(State.SC_Color1R, State.SC_Color1G, State.SC_Color1B), function(c)
+        State.SC_Color1R = math.floor(c.R*255); State.SC_Color1G = math.floor(c.G*255); State.SC_Color1B = math.floor(c.B*255)
+    end)
+    addToggle(skinsSubs["Skin"], "Use Custom Color 2", nil, false, function(v) State.SC_UseColor2 = v end)
+    addColorWheel(skinsSubs["Skin"], "Camo 2 Color", Color3.fromRGB(State.SC_Color2R, State.SC_Color2G, State.SC_Color2B), function(c)
+        State.SC_Color2R = math.floor(c.R*255); State.SC_Color2G = math.floor(c.G*255); State.SC_Color2B = math.floor(c.B*255)
+    end)
+    addButton(skinsSubs["Skin"], "✅ Применить скин", nil, function() _G.KZ.scApply() end)
+    addButton(skinsSubs["Skin"], "❌ Сбросить скины", nil, function() _G.KZ.scReset() end)
+    addSection(skinsSubs["Пресеты"], "Skin Presets")
+    addButton(skinsSubs["Пресеты"], "💾 Сохранить скин", nil, function()
+        if _G.KZ.savePresetForWeapon(State.SC_Weapon) then _G.KZ.setSelectedPreset(State.SC_Weapon) end
+    end)
+    addDropdown(skinsSubs["Пресеты"], "Сохранённый скин", _G.KZ.getPresetNames, function() return _G.KZ.getSelectedPreset() end, function(v)
+        _G.KZ.setSelectedPreset(v)
+        if v and v ~= "— пусто —" then _G.KZ.loadPresetIntoState(v); _G.KZ.applyPresetForWeapon(v); State.SC_Weapon = v end
+    end)
+    addButton(skinsSubs["Пресеты"], "📂 Применить выбранный", nil, function()
+        local sp = _G.KZ.getSelectedPreset()
+        if sp and sp ~= "None" and sp ~= "— пусто —" then _G.KZ.applyPresetForWeapon(sp); State.SC_Weapon = sp end
+    end)
+    addButton(skinsSubs["Пресеты"], "🗑 Удалить выбранный", nil, function()
+        local sp = _G.KZ.getSelectedPreset()
+        if sp and sp ~= "None" and sp ~= "— пусто —" then _G.KZ.deletePreset(sp); _G.KZ.setSelectedPreset("None") end
+    end)
+
+    -- AIMBOT
+    addSection(aimbotSubs["Аимбот"], "Авто-прицел")
+    addToggle(aimbotSubs["Аимбот"], "Включить аимбот", "Нажми Z для toggle прицеливания", false, function(v)
+        State.aimbotModuleActive = v
+        if v then _G.KZ.startAimbotModule() else _G.KZ.stopAimbotModule() end
+    end, "aimbot")
+
+    addSection(aimbotSubs["Whitelist"], "Whitelist")
+    local wlInputRow = addRow(aimbotSubs["Whitelist"], "Ник игрока")
+    wlInputRow.Size = UDim2.new(1,0,0,52)
+    local wlBox = new("TextBox", {Size=UDim2.new(0,110,0,22),Position=UDim2.new(1,-122,0.5,-11),BackgroundColor3=C.tabColorDark,Text="",PlaceholderText="например: koba_lox11",PlaceholderColor3=C.subtext,TextColor3=C.text,Font=Enum.Font.Gotham,TextSize=11,ClearTextOnFocus=false,BorderSizePixel=0,Parent=wlInputRow,ZIndex=4})
+    corner(wlBox, 6); reg(wlBox, "tab"); reg(wlBox, "text")
+    local wlStatus = new("TextLabel", {Size=UDim2.new(0.6,0,0,14),Position=UDim2.new(0,12,0,32),BackgroundTransparency=1,Text="— пусто —",TextColor3=C.neon,Font=Enum.Font.GothamMedium,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,TextTruncate=Enum.TextTruncate.AtEnd,Parent=wlInputRow,ZIndex=3})
+    reg(wlStatus, "text")
+    local function refreshWhitelistLabel() wlStatus.Text = _G.KZ.getAimbotWhitelistString() end
+    refreshWhitelistLabel()
+    addButton(aimbotSubs["Whitelist"], "➕ Добавить", nil, function()
+        if _G.KZ.addToAimbotWhitelist(wlBox.Text) then wlBox.Text = ""; refreshWhitelistLabel() end
+    end)
+    addButton(aimbotSubs["Whitelist"], "🗑 Очистить", nil, function()
+        _G.KZ.clearAimbotWhitelist(); refreshWhitelistLabel()
+    end)
+
+    -- VISUALS
+    addSection(visualSubs["Ник"], "Визуальный ник")
+    addInput(visualSubs["Ник"], "Никнейм (Name)", "Например: CoolPlayer", State.CustomUserName, function(v)
+        State.CustomUserName = (v ~= "" and v) or player.Name
+        if State.CustomNameEnabled then _G.KZ.updateCustomName() end
+    end)
+    addInput(visualSubs["Ник"], "Отображаемое имя", "Например: Крутой Игрок", State.CustomDisplayName, function(v)
+        State.CustomDisplayName = (v ~= "" and v) or player.DisplayName
+        if State.CustomNameEnabled then _G.KZ.updateCustomName() end
+    end)
+    addToggle(visualSubs["Ник"], "Включить свой ник", nil, false, function(v)
+        State.CustomNameEnabled = v; _G.KZ.updateCustomName()
+    end)
+    addButton(visualSubs["Ник"], "💾 Применить", nil, function() _G.KZ.updateCustomName() end)
+
+    addSection(visualSubs["Аксессуары"], "Анимированные аксессуары")
+    addDropdown(visualSubs["Аксессуары"], "Цвет",
+        function() return {"Pink","Black","White","Blue","Turquoise","Purple"} end,
+        function() return State.AccessoryColorName end,
+        function(v) State.AccessoryColorName = v; State.AccessoryColor = AccessoryColors[v] or Color3.fromRGB(255,105,180); _G.KZ.refreshAccessoryColor() end,
+        AccessoryColors)
+    addButton(visualSubs["Аксессуары"], "🎎 Китайская шляпа (парит)", nil, function() _G.KZ.equipAccessory("ChinaHat") end)
+    addButton(visualSubs["Аксессуары"], "👼 Ангельские крылья (машут)", nil, function() _G.KZ.equipAccessory("AngelWings") end)
+    addButton(visualSubs["Аксессуары"], "💫 Плазменная аура", nil, function() _G.KZ.equipAccessory("PlasmaAura") end)
+    addButton(visualSubs["Аксессуары"], "🔥 Огненная корона", nil, function() _G.KZ.equipAccessory("FireCrown") end)
+    addButton(visualSubs["Аксессуары"], "✨ Звёздная орбита", nil, function() _G.KZ.equipAccessory("StarOrbit") end)
+    addButton(visualSubs["Аксессуары"], "❌ Снять все", nil, function() _G.KZ.removeAccessory() end)
+
+    addSection(visualSubs["По ID"], "Аксессуары по ID")
+    addInput(visualSubs["По ID"], "ID", "139152472", State.AccByIdInput, function(v) State.AccByIdInput = v end)
+    addButton(visualSubs["По ID"], "🎩 Надеть по ID", nil, function() _G.KZ.equipAccessoryById(State.AccByIdInput) end)
+    addButton(visualSubs["По ID"], "❌ Снять все", nil, function() _G.KZ.removeAllAccById() end)
+    addSection(visualSubs["По ID"], "Части тела по ID")
+    addDropdown(visualSubs["По ID"], "Часть",
+        function() return {"Head", "Torso", "HumanoidRootPart", "Left Arm", "Right Arm", "Left Leg", "Right Leg"} end,
+        function() return State.BodyPartTarget end,
+        function(v) State.BodyPartTarget = v end)
+    addInput(visualSubs["По ID"], "ID модели", "139152472", State.BodyPartByIdInput, function(v) State.BodyPartByIdInput = v end)
+    addButton(visualSubs["По ID"], "🧷 Надеть", nil, function() _G.KZ.equipBodyPartById(State.BodyPartByIdInput, State.BodyPartTarget) end)
+    addButton(visualSubs["По ID"], "❌ Снять", nil, function() _G.KZ.removeAllBodyPartsById() end)
+
+    addSection(visualSubs["Одежда"], "2D Одежда")
+    addDropdown(visualSubs["Одежда"], "Тип",
+        function() return {"T-Shirt", "Shirt", "Pants"} end,
+        function() return State.ClothingTarget end,
+        function(v) State.ClothingTarget = v end)
+    addInput(visualSubs["Одежда"], "ID", "1234567", State.ClothingIdInput, function(v) State.ClothingIdInput = v end)
+    addButton(visualSubs["Одежда"], "👕 Надеть", nil, function() _G.KZ.equip2DClothing(State.ClothingIdInput, State.ClothingTarget) end)
+    addButton(visualSubs["Одежда"], "❌ Снять 2D", nil, function() _G.KZ.removeAll2DClothing() end)
+    addButton(visualSubs["Одежда"], "↩ Вернуть", nil, function() _G.KZ.restoreOriginalClothing() end)
+
+    addSection(visualSubs["Время"], "Time Changer")
+    addToggle(visualSubs["Время"], "Enable Time", nil, false, function(v)
+        State.TimeChangerEnabled = v
+        if v then _G.KZ.applyTimeNow() else _G.KZ.disableTimeChanger() end
+    end)
+    addSlider(visualSubs["Время"], "Hours", 0, 23, 14, false, function(v) _G.KZ.setTime(v, nil) end)
+    addSlider(visualSubs["Время"], "Minutes", 0, 59, 0, false, function(v) _G.KZ.setTime(nil, v) end)
+
+    addSection(visualSubs["Звуки"], "Kill & Downed Rewards")
+    addToggle(visualSubs["Звуки"], "Enable Kill Rewards", "Показывать DOWNED / +$1,000 KILL и играть звуки", false, function(v) State.KillRewardsEnabled = v end)
+    addToggle(visualSubs["Звуки"], "Enable Kill Sounds", "Воспроизводить звуки стриков", true, function(v) State.KillStreakEnabled = v end)
+    addInput(visualSubs["Звуки"], "2 kills", "rbxassetid://...", State.KillStreakSounds[2], function(v)
+        if v and v ~= "" then if not v:find("rbxassetid://") and tonumber(v) then v = "rbxassetid://" .. v end; State.KillStreakSounds[2] = v end
+    end)
+    addInput(visualSubs["Звуки"], "3 kills", "rbxassetid://...", State.KillStreakSounds[3], function(v)
+        if v and v ~= "" then if not v:find("rbxassetid://") and tonumber(v) then v = "rbxassetid://" .. v end; State.KillStreakSounds[3] = v end
+    end)
+    addInput(visualSubs["Звуки"], "4 kills", "rbxassetid://...", State.KillStreakSounds[4], function(v)
+        if v and v ~= "" then if not v:find("rbxassetid://") and tonumber(v) then v = "rbxassetid://" .. v end; State.KillStreakSounds[4] = v end
+    end)
+    addInput(visualSubs["Звуки"], "10 kills", "rbxassetid://...", State.KillStreakSounds[10], function(v)
+        if v and v ~= "" then if not v:find("rbxassetid://") and tonumber(v) then v = "rbxassetid://" .. v end; State.KillStreakSounds[10] = v end
+    end)
+    addSlider(visualSubs["Звуки"], "Volume", 0, 10, 3, true, function(v) State.KillStreakVolume = v end)
+    addToggle(visualSubs["Звуки"], "Low Graphics (FPS Boost)", nil, false, function(v) if v then _G.KZ.enableLowGraphics() end end)
+
+    -- ESP
+    addSection(visualSubs["ESP"], "ESP — Wallhack")
+    addToggle(visualSubs["ESP"], "Enable ESP", nil, false, function(v)
+        State.espEnabled = v
+        if not v then _G.KZ.rebuildEsp() end
+    end, "esp")
+    addToggle(visualSubs["ESP"], "Highlight", nil, true, function(v) State.espHighlight = v end)
+    addToggle(visualSubs["ESP"], "Box 2D", nil, true, function(v) State.espBox = v end)
+    addToggle(visualSubs["ESP"], "Name", nil, true, function(v) State.espName = v end)
+    addToggle(visualSubs["ESP"], "Distance", nil, true, function(v) State.espDistance = v end)
+    addToggle(visualSubs["ESP"], "Health", nil, true, function(v) State.espHealth = v end)
+    addToggle(visualSubs["ESP"], "Tracer", nil, false, function(v) State.espTracer = v end)
+    addSlider(visualSubs["ESP"], "Max Distance", 50, 2000, 500, false, function(v) State.espMaxDistance = v end)
+    addSlider(visualSubs["ESP"], "Box Thickness", 1, 5, 1, true, function(v) State.espBoxThickness = v end)
+    addSlider(visualSubs["ESP"], "Text Size", 10, 22, 13, false, function(v) State.espTextSize = v end)
+    addDropdown(visualSubs["ESP"], "Color Mode",
+        function() return {"Team", "Health", "Static"} end,
+        function() return State.espColorMode end,
+        function(v) State.espColorMode = v end)
+    addButton(visualSubs["ESP"], "🔄 Перестроить ESP", nil, function() _G.KZ.rebuildEsp() end)
+
+    addSection(visualSubs["ESP"], "ESP Whitelist (кого не рисовать)")
+    addPlayerPicker(
+        visualSubs["ESP"],
+        "🚫 ESP Whitelist",
+        "Выбранные игроки НЕ будут рисоваться",
+        function() return State.espWhitelist end,
+        function() end
+    )
+    addButton(visualSubs["ESP"], "🗑 Очистить ESP whitelist", nil, function()
+        State.espWhitelist = {}
+        local upd = _G.KZ["_updateSummary_🚫 ESP Whitelist"]
+        if upd then upd() end
+    end)
+
+    -- FLY
+    addSection(flyTab, "Полёт")
+    addToggle(flyTab, "Enable Fly", "CTRL — взлёт/посадка", true, function(v)
+        State.flyEnabled = v
+        if not v and _G.KZ.flyState.active then _G.KZ.stopFly() end
+    end, "fly")
+    addSlider(flyTab, "Fly Speed", 50, 800, 400, false, function(v) State.flySpeed = v end)
+    addKeybind(flyTab, "Fly Keybind", "LeftControl", function(k) State.flyKey = k end)
+
+    -- OTHER
+    addSection(otherSubs["Скрипты"], "Скрипты")
+    addButton(otherSubs["Скрипты"], "🚀 Fast Up", nil, function() pcall(function() game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p) p.HoldDuration = 0 end) end) end)
+    addButton(otherSubs["Скрипты"], "📦 Infinity Yield", nil, function() pcall(function() loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))() end) end)
+    addButton(otherSubs["Скрипты"], "🎥 Freecam", "Shift+P", function()
+        pcall(function() loadstring(game:HttpGet("https://pastebin.com/raw/GX6MytJm"))() end)
+    end)
+    addSection(otherSubs["ТП"], "Телепорты")
+    addButton(otherSubs["ТП"], "🗼 Towers", nil, function()
+        local char = player.Character
+        if char then pcall(function() char:PivotTo(CFrame.new(-785.45, 1000.37, -445.58)) end) end
+    end)
+    addSection(otherSubs["FOV"], "FOV")
+    addToggle(otherSubs["FOV"], "Enable FOV", nil, false, function(v)
+        State.FovEnabled = v
+        if not v then local cam = workspace.CurrentCamera; if cam then cam.FieldOfView = _G.KZ.defaultFov end end
+    end)
+    addSlider(otherSubs["FOV"], "FOV Value", 40, 160, 100, false, function(v) State.FovValue = v end)
+
+    -- UI
+    addSection(uiSubs["Меню"], "Меню")
+    addKeybind(uiSubs["Меню"], "Клавиша открытия", "Insert", function(k) State.MenuToggleKey = k end)
+    addSection(uiSubs["Игровое UI"], "Внутриигровое UI")
+    addToggle(uiSubs["Игровое UI"], "Скрыть игровое UI", nil, false, function(v) State.HideGameUI = v; _G.KZ.applyGameUI() end)
+    addToggle(uiSubs["Игровое UI"], "Скрыть чат", nil, false, function(v) State.HideChat = v; _G.KZ.applyChat() end)
+    addSection(uiSubs["Темы"], "Темы")
+    local themeColorMap = {
+        Pink=Themes.Pink.tabColor, Green=Themes.Green.tabColor, Cyan=Themes.Cyan.tabColor,
+        Turquoise=Themes.Turquoise.tabColor, Purple=Themes.Purple.tabColor,
+        White=Themes.White.tabColor, Black=Themes.Black.tabColor,
+    }
+    addDropdown(uiSubs["Темы"], "Theme",
+        function() return {"Pink","Green","Cyan","Turquoise","Purple","White","Black"} end,
+        function() return State.CurrentTheme end,
+        function(v) applyTheme(v) end,
+        themeColorMap)
+
+    -- CONFIG
+    addSection(configTab, "Config Manager")
+    addInput(configTab, "Название конфига", "KZHub_Default", State.ConfigName, function(v)
+        State.ConfigName = (v ~= "" and v) or "KZHub_Default"
+    end)
+    addToggle(configTab, "Auto-Save (каждые 15с)", "Автоматически сохраняет настройки", true, function(v)
+        State.AutoSaveConfig = v
+    end, "autosave")
+    addButton(configTab, "💾 Сохранить текущий", "Сохранить под именем сверху", function()
+        _G.KZ.saveConfig(State.ConfigName)
+    end)
+    addButton(configTab, "📂 Загрузить по имени", "Загрузить из поля сверху", function()
+        if _G.KZ.loadConfig(State.ConfigName) then
+            print("[KZ Hub] ✅ Загружен: " .. State.ConfigName)
+        else
+            warn("[KZ Hub] ❌ Не найден config: " .. State.ConfigName)
+        end
+    end)
+    addButton(configTab, "🗑 Удалить по имени", nil, function()
+        _G.KZ.deleteConfig(State.ConfigName)
+    end)
+
+    addSection(configTab, "Быстрые действия")
+    addButton(configTab, "💾 Сохранить как AutoLoad", "Авто-загрузка при старте", function()
+        _G.KZ.saveConfig("AutoLoad")
+    end)
+    addButton(configTab, "📂 Загрузить AutoLoad", nil, function()
+        _G.KZ.loadConfig("AutoLoad")
+    end)
+    addButton(configTab, "🔃 Обновить список", nil, function() end)
+
+    addDropdown(configTab, "Сохранённые конфиги",
+        function()
+            local list = _G.KZ.listConfigs()
+            if #list == 0 then table.insert(list, "— пусто —") end
+            return list
+        end,
+        function() return State.ConfigName end,
+        function(v) State.ConfigName = v end)
+
+    do
+        local first = tabs["Hitbox"]
+        first.Button.BackgroundColor3 = C.tabColorHover
+        first.Button.BackgroundTransparency = 0
+        first.Stroke.Transparency = 0.5
+        first.Indicator.BackgroundTransparency = 0
+        first.IndicatorGlow.BackgroundTransparency = 0.8
+        first.Icon.TextColor3 = C.accent; first.Name.TextColor3 = C.text
+        first.Name.Position = UDim2.new(0,36,0,0)
+        first.Content.Visible = true; currentTab = "Hitbox"
+    end
+
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+        if input.KeyCode.Name == State.MenuToggleKey then toggleMenu() end
+    end)
+
+    player.CharacterAdded:Connect(function(newChar)
+        State.CurrentKillStreak = 0
+        task.wait(1)
+        if _G.KZ.getCurrentAccessoryName() then
+            local n = _G.KZ.getCurrentAccessoryName()
+            _G.KZ.setCurrentAccessoryName(nil)
+            pcall(function() _G.KZ.equipAccessory(n) end)
+        end
+    end)
+
+    gui.Enabled = true
+    main.Visible = false
+
+    task.delay(1.5, function()
+        TweenService:Create(splashTitle, TweenInfo.new(0.2), {TextTransparency=1}):Play()
+        TweenService:Create(splashAuthor, TweenInfo.new(0.2), {TextTransparency=1}):Play()
+        task.wait(0.1)
+        local out = TweenService:Create(splash, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size=UDim2.new(0,440,0,0), Position=UDim2.new(0.5,-220,0.5,0)})
+        out:Play()
+        out.Completed:Connect(function() splash:Destroy(); animateOpen() end)
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════════
+-- KILL REWARD
+-- ════════════════════════════════════════════════════════════════
+do
+    local State = _G.KZ.State
+    local Players = _G.KZ.Players
+    local player = _G.KZ.player
+    local RunService = _G.KZ.RunService
+    local UserInputService = _G.KZ.UserInputService
+    local TweenService = _G.KZ.TweenService
+    local CoreGui = _G.KZ.CoreGui
+    local new = _G.KZ.new
+
+    local DownedGui = new("ScreenGui", {Name="KZ_Downed", ResetOnSpawn=false, ZIndexBehavior=Enum.ZIndexBehavior.Sibling, IgnoreGuiInset=true, DisplayOrder=999})
+    pcall(function() DownedGui.Parent = CoreGui end)
+    if not DownedGui.Parent then DownedGui.Parent = player:WaitForChild("PlayerGui") end
+    local killStack = new("Frame", {Size=UDim2.new(0,500,1,0), Position=UDim2.new(0.5,-250,0,0), BackgroundTransparency=1, Parent=DownedGui})
+    new("UIListLayout", {FillDirection=Enum.FillDirection.Vertical, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, Padding=UDim.new(0,6), SortOrder=Enum.SortOrder.LayoutOrder, Parent=killStack})
+
+    local killCounter = 0
+    local downedCounter = 0
+    local SHOT_HISTORY_MAX = 12
+    local SHOT_MAX_AGE = 1.2
+    local HIT_DOT_THRESHOLD = 0.95
+    local shotHistory = {}
+    local damageOwner = setmetatable({}, { __mode = "k" })
+    local lastHP = setmetatable({}, { __mode = "k" })
+    local firedState = setmetatable({}, { __mode = "k" })
+    local downedNotified = setmetatable({}, { __mode = "k" })
+    local lastShotByUsTime = 0
+
+    local function recordShot()
+        if not State.KillRewardsEnabled then return end
+        local cam = workspace.CurrentCamera; if not cam then return end
+        table.insert(shotHistory, {t=tick(), origin=cam.CFrame.Position, dir=cam.CFrame.LookVector})
+        while #shotHistory > SHOT_HISTORY_MAX do table.remove(shotHistory, 1) end
+        lastShotByUsTime = tick()
+    end
+    local function targetWasHitByUs(char)
+        local hrp = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return false end
+        local now = tick()
+        for _, shot in ipairs(shotHistory) do
+            if (now - shot.t) <= SHOT_MAX_AGE then
+                local toTarget = hrp.Position - shot.origin
+                if toTarget.Magnitude > 0.01 and toTarget.Unit:Dot(shot.dir) >= HIT_DOT_THRESHOLD then return true end
+            end
+        end
+        return false
+    end
+    local ATTACKER_ATTRS = {
+        "LastAttacker", "LastDamager", "LastDamageSource", "Killer", "KilledBy",
+        "DamageSource", "Attacker", "LastHit", "HitBy", "LastDamagedBy",
+        "Owner", "KillerName", "LastDamageBy", "LastAttackerName",
+        "DamageOwner", "LastHitBy", "LastPlayerDamage", "KillerUserId"
+    }
+    local function tryResolveAttacker(v)
+        if v == nil then return nil end
+        if typeof(v) == "Instance" and v:IsA("Player") then return v end
+        if type(v) == "number" then
+            for _, p in ipairs(Players:GetPlayers()) do if p.UserId == v then return p end end
+        end
+        if type(v) == "string" then
+            local lv = v:lower()
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p.Name:lower() == lv or p.DisplayName:lower() == lv then return p end
+            end
+            local num = tonumber(v)
+            if num then for _, p in ipairs(Players:GetPlayers()) do if p.UserId == num then return p end end end
+        end
+        return nil
+    end
+    local function getAttackerFromAttrs(char, hum)
+        for _, attrName in ipairs(ATTACKER_ATTRS) do
+            local v1 = hum and hum:GetAttribute(attrName)
+            local v2 = char:GetAttribute(attrName)
+            local resolved = tryResolveAttacker(v1) or tryResolveAttacker(v2)
+            if resolved then return resolved end
+        end
+        return nil
+    end
+    local function playStreakSound(id)
+        if not State.KillRewardsEnabled or not State.KillStreakEnabled or not id or id == "" then return end
+        pcall(function()
+            local snd = Instance.new("Sound")
+            snd.SoundId = id; snd.Volume = State.KillStreakVolume or 3
+            snd.Parent = workspace; snd:Play()
+            task.delay(10, function() if snd then snd:Destroy() end end)
+        end)
+    end
+    local function updateDownStreak()
+        State.CurrentKillStreak = (State.CurrentKillStreak or 0) + 1
+        local id = State.KillStreakSounds[State.CurrentKillStreak]
+        if id then playStreakSound(id) end
+    end
+    local STREAK_ANIM_TIME = 2.0
+    local END_OFFSET_X = 320
+    local END_OFFSET_Y = -220
+    local SCALE_START = 0.6
+    local SCALE_END = 2.4
+    local FADE_START = 0.8
+    local function showStreakNotification(text, color, strokeColor, order)
+        if not State.KillRewardsEnabled then return end
+        local holder = new("Frame", {Size=UDim2.new(0,500,0,110), BackgroundTransparency=1, LayoutOrder=order, Parent=killStack})
+        local label = new("TextLabel", {
+            Size = UDim2.new(1,0,1,0), AnchorPoint = Vector2.new(0.5,0.5),
+            Position = UDim2.new(0.5,0,0.5,0), BackgroundTransparency = 1,
+            Text = text, Font = Enum.Font.GothamBlack, TextSize = 56,
+            TextColor3 = color, TextStrokeTransparency = 1, TextStrokeColor3 = strokeColor,
+            Rotation = -8, TextTransparency = 1, Parent = holder
+        })
+        local scale = new("UIScale", {Scale = SCALE_START, Parent = label})
+        TweenService:Create(label, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+        TweenService:Create(label, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {TextStrokeTransparency = 0.3}):Play()
+        local startTime = tick()
+        local conn
+        conn = RunService.RenderStepped:Connect(function()
+            if not label.Parent then if conn then conn:Disconnect() end return end
+            local elapsed = tick() - startTime
+            local t = math.clamp(elapsed / STREAK_ANIM_TIME, 0, 1)
+            scale.Scale = SCALE_START + (SCALE_END - SCALE_START) * t
+            label.Position = UDim2.new(0.5, t * END_OFFSET_X, 0.5, t * END_OFFSET_Y)
+            if t > FADE_START then
+                local fadeT = (t - FADE_START) / (1 - FADE_START)
+                label.TextTransparency = fadeT
+                label.TextStrokeTransparency = 0.3 + fadeT * 0.7
+            end
+            if elapsed >= STREAK_ANIM_TIME then
+                if conn then conn:Disconnect() end
+                holder:Destroy()
+            end
+        end)
+    end
+    local function showDownedNotification()
+        if not State.KillRewardsEnabled then return end
+        downedCounter = downedCounter + 1
+        updateDownStreak()
+        showStreakNotification("DOWNED", Color3.fromRGB(220,50,50), Color3.fromRGB(80,0,0), downedCounter)
+    end
+    local function showKillReward()
+        if not State.KillRewardsEnabled then return end
+        killCounter = killCounter + 1
+        showStreakNotification("+$1,000 KILL", Color3.fromRGB(80,230,90), Color3.fromRGB(0,60,0), killCounter)
+    end
+    local function classifyAttacker(plr, char, hum)
+        local attacker = getAttackerFromAttrs(char, hum)
+        if attacker == player then return "us" end
+        if attacker and attacker ~= player then return "other" end
+        local info = damageOwner[hum]
+        if info and (tick() - info.time) < 1.0 then
+            if info.attacker == "us" then return "us" end
+            if info.attacker == "other" then return "other" end
+        end
+        if (tick() - lastShotByUsTime) <= SHOT_MAX_AGE and targetWasHitByUs(char) then return "us" end
+        return nil
+    end
+    local DOWNED_ATTRS = {"Downed","Knocked","IsDowned","IsKnocked","KO","Down","Ragdoll","Incapacitated","DownedState"}
+    local function isDowned(plr, char, hum)
+        if not plr or not char or not hum then return false end
+        if plr == player then return false end
+        if hum.Health <= 0 then return false end
+        for _, attr in ipairs(DOWNED_ATTRS) do
+            local v1 = hum:GetAttribute(attr); local v2 = char:GetAttribute(attr)
+            if v1 == true or v2 == true then return true end
+            if type(v1) == "number" and v1 > 0 and attr:lower():find("down") then return true end
+            if type(v2) == "number" and v2 > 0 and attr:lower():find("down") then return true end
+        end
+        local st = hum:GetState()
+        if st == Enum.HumanoidStateType.Ragdoll or st == Enum.HumanoidStateType.FallingDown or st == Enum.HumanoidStateType.Physics then return true end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp and hum.Health > 0 and hum.Health < hum.MaxHealth then
+            if hrp.CFrame.UpVector.Y < 0.4 then return true end
+        end
+        return false
+    end
+    local function checkDowned(plr, char, hum)
+        if not State.KillRewardsEnabled or not hum or firedState[hum] then return end
+        if not isDowned(plr, char, hum) then return end
+        if classifyAttacker(plr, char, hum) ~= "us" then return end
+        if not downedNotified[hum] then
+            downedNotified[hum] = true
+            showDownedNotification()
+        end
+    end
+    local function checkKilled(plr, char, hum)
+        if not State.KillRewardsEnabled or not hum or firedState[hum] then return end
+        if hum.Health > 0 then return end
+        if classifyAttacker(plr, char, hum) ~= "us" then return end
+        firedState[hum] = true
+        showKillReward()
+    end
+    local function onHealthChanged(plr, char, hum, newHealth)
+        if not State.KillRewardsEnabled then return end
+        local oldHealth = lastHP[hum] or newHealth
+        lastHP[hum] = newHealth
+        if newHealth < oldHealth then
+            local attacker = getAttackerFromAttrs(char, hum)
+            if attacker == player then
+                damageOwner[hum] = {attacker = "us", time = tick()}
+            elseif attacker and attacker ~= player then
+                damageOwner[hum] = {attacker = "other", time = tick()}
+            elseif (tick() - lastShotByUsTime) <= SHOT_MAX_AGE and targetWasHitByUs(char) then
+                damageOwner[hum] = {attacker = "us", time = tick()}
+            else
+                damageOwner[hum] = {attacker = "other", time = tick()}
+            end
+        end
+        if newHealth <= 0 then checkKilled(plr, char, hum) else checkDowned(plr, char, hum) end
+    end
+    local function hookDownedChar(char)
+        if not char then return end
+        local hum = char:WaitForChild("Humanoid", 5); if not hum then return end
+        local plr = Players:GetPlayerFromCharacter(char)
+        if not plr or plr == player then return end
+        lastHP[hum] = hum.Health
+        damageOwner[hum] = nil; firedState[hum] = nil; downedNotified[hum] = nil
+        hum.Died:Connect(function() checkKilled(plr, char, hum) end)
+        hum.HealthChanged:Connect(function(newHealth) onHealthChanged(plr, char, hum, newHealth) end)
+        hum.StateChanged:Connect(function() checkDowned(plr, char, hum) end)
+        task.spawn(function()
+            while char.Parent and hum.Parent do
+                if hum.Health > 0 then checkDowned(plr, char, hum) end
+                task.wait(0.15)
+            end
+        end)
+    end
+    local function hookTool(tool)
+        if not tool or not tool:IsA("Tool") then return end
+        if tool:GetAttribute("KZ_ShotHooked_V16") then return end
+        tool:SetAttribute("KZ_ShotHooked_V16", true)
+        tool.Activated:Connect(recordShot)
+    end
+    task.spawn(function()
+        while true do
+            local char = player.Character
+            if char then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool then hookTool(tool) end
+            end
+            local bp = player:FindFirstChildOfClass("Backpack")
+            if bp then for _, t in ipairs(bp:GetChildren()) do if t:IsA("Tool") then hookTool(t) end end end
+            task.wait(0.3)
+        end
+    end)
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local char = player.Character
+            if char and char:FindFirstChildOfClass("Tool") then recordShot() end
+        end
+    end)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            if p.Character then hookDownedChar(p.Character) end
+            p.CharacterAdded:Connect(hookDownedChar)
+        end
+    end
+    Players.PlayerAdded:Connect(function(p)
+        if p == player then return end
+        p.CharacterAdded:Connect(hookDownedChar)
+    end)
+    _G.KZ_ShowDowned = showDownedNotification
+    _G.KZ_ShowKillReward = showKillReward
+end
+
+print("🇰🇿 KZ HUB v9.5 — Config Save/Load + Status Toggles + Опущенные крылья")
